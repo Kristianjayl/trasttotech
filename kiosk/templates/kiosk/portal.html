@@ -1,0 +1,136 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>TrashToTech — Home Vendo</title>
+<link rel="stylesheet" href="{% static 'kiosk/css/portal.css' %}">
+</head>
+<body>
+
+<div class="machine">
+
+  <div class="plate">
+    <div class="brand">Trash<span>To</span>Tech</div>
+    <div class="model">HOME VENDO &mdash; UNIT 01</div>
+  </div>
+
+  <div class="screen-bezel">
+    <div class="screen">
+      <div class="status-row">
+        <span class="status-dot"></span>
+        <span id="connLabel">CONNECTED</span>
+        <span class="paused-tag" id="pausedTag">PAUSED</span>
+      </div>
+      <div class="meta">
+        IP&nbsp; <b id="metaIp">{{ state.ip }}</b><br>
+        MAC&nbsp; <b id="metaMac">{{ state.mac }}</b>
+      </div>
+
+      <div class="led-label">Account Points</div>
+      <div class="led-points"><span id="pointsValue">{{ state.points }}</span> <sub>PTS</sub></div>
+
+      <div class="timer-row">
+        <div>
+          <div class="led-label">Remaining Time</div>
+          <div class="led-timer" id="timerValue">00:00:00</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <button class="vbtn green" id="btnInsert">Insert Bottle <span class="arrow">&#8250;</span></button>
+    <button class="vbtn purple" id="btnRedeem">Redeem Points <span class="arrow">&#8250;</span></button>
+    <button class="vbtn red" id="btnPause">Pause Time <span class="arrow">&#8250;</span></button>
+    <button class="vbtn blue" id="btnRates">WiFi Rates <span class="arrow">&#8250;</span></button>
+  </div>
+
+  <div class="slot">
+    <input type="text" id="voucherInput" placeholder="Enter voucher here" maxlength="20">
+    <button id="voucherSubmit">SUBMIT</button>
+  </div>
+
+  <div class="footnote">Insert a plastic bottle to earn points &middot; Points convert to WiFi time</div>
+</div>
+
+<!-- ============ TRAY: INSERT BOTTLE ============ -->
+<div class="tray-backdrop" id="trayInsert">
+  <div class="tray">
+    <button class="close-x" data-close="trayInsert">&times;</button>
+    <div class="tray-handle"></div>
+    <h2>Insert Bottle</h2>
+    <div class="sub">Home Vendo &mdash; drop your bottle in the slot now</div>
+
+    <div class="weigh-screen">
+      <div class="countdown"><span id="weighCountdown">30</span>s</div>
+      <div class="weigh-bar"><div class="weigh-bar-fill" id="weighBarFill"></div></div>
+      <div class="weigh-kg"><span id="weighKg">0.00</span>kg</div>
+    </div>
+
+    <div class="weigh-hint">
+      Please insert a minimum of 1 bottle for WiFi.<br>
+      At least 0.50kg is needed to generate a voucher instead.
+    </div>
+
+    <div id="weighActions">
+      <button class="cancel-link" id="btnCancelInsert">Cancel</button>
+    </div>
+    <div id="weighResult" style="display:none;"></div>
+  </div>
+</div>
+
+<!-- ============ TRAY: REDEEM POINTS ============ -->
+<div class="tray-backdrop" id="trayRedeem">
+  <div class="tray">
+    <button class="close-x" data-close="trayRedeem">&times;</button>
+    <div class="tray-handle"></div>
+    <h2>Redeem Points</h2>
+    <div class="sub"><span id="redeemBalance">{{ state.points }}</span> Points available</div>
+
+    <div id="redeemList">
+      {% for r in wifi_rates %}
+      <div class="tier-row">
+        <div>
+          <div class="tier-label">{{ r.label }}</div>
+          <div class="tier-cost">{{ r.points }} Points</div>
+        </div>
+        <button class="redeem-btn" data-points="{{ r.points }}">Redeem</button>
+      </div>
+      {% endfor %}
+    </div>
+
+    <button class="cancel-link" data-close="trayRedeem">Cancel</button>
+  </div>
+</div>
+
+<!-- ============ TRAY: WIFI RATES (read-only) ============ -->
+<div class="tray-backdrop" id="trayRates">
+  <div class="tray">
+    <button class="close-x" data-close="trayRates">&times;</button>
+    <div class="tray-handle"></div>
+    <h2>WiFi Rates</h2>
+    <div class="sub">Plastic bottle weight &rarr; points &rarr; WiFi time</div>
+
+    <table class="rates">
+      <tr><th>Bottle weight</th><th>Points</th><th>WiFi time</th></tr>
+      {% for p in plastic_rates %}
+      <tr>
+        <td>{{ p.weight_kg }} kg{% if p.weight_kg == 0.1 %} (100 g){% endif %}</td>
+        <td>{{ p.points }} pts</td>
+        <td>
+          {% for w in wifi_rates %}{% if w.points == p.points %}{{ w.label }}{% endif %}{% endfor %}
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+{{ state|json_script:"state-data" }}
+<script src="{% static 'kiosk/js/portal.js' %}"></script>
+</body>
+</html>
