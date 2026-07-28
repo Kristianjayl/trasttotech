@@ -137,18 +137,22 @@
           <div class="weigh-hint" style="background:#E7F7EA; color:#1F6B33;">
             +${d.points_awarded} points awarded for 1 bottle. Balance: ${d.new_balance} pts.
           </div>
+
           <div style="display:flex; gap:8px; margin-bottom:6px;">
             <button id="btnGenVoucher" style="flex:1; border:none; border-radius:7px; padding:10px; background:var(--btn-purple); color:#fff; font-weight:700; cursor:pointer;" ${canVoucher ? '' : 'disabled'}>Generate Voucher</button>
           </div>
-          ${canVoucher ? '' : `<div style="font-size:11.5px; color:var(--muted); margin-bottom:6px;">Needs ${VOUCHER_MIN_POINTS} pts (0.50kg) minimum for a voucher.</div>`}
+
+          ${canVoucher ? '' : `<div style="font-size:11.5px; color:var(--muted); margin-bottom:6px;">Needs ${VOUCHER_MIN_POINTS} pts (5 bottles) minimum for a voucher.</div>`}
           <button class="cancel-link" data-close="trayInsert">Done</button>`;
+        
         showToast('+' + d.points_awarded + ' points awarded', 'success');
         const genBtn = document.getElementById('btnGenVoucher');
         if (genBtn) genBtn.addEventListener('click', () => generateVoucher(box));
-      } else {
+      } 
+      else {
         box.innerHTML = `
           <div class="weigh-hint" style="background:#FBE9E6; color:#9A2E1C;">
-            Not enough weight detected. Please try again.
+            Not bottle detected. Please try again.
           </div>
           <button class="cancel-link" data-close="trayInsert">Close</button>`;
       }

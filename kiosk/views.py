@@ -98,11 +98,12 @@ def api_status(request):
 def api_insert_start(request):
     """
     Begin a deposit session. On real hardware this is the moment the IR
-    sensor detects a bottle and the ESP32 starts reading the load cell.
-    Here we simulate a bottle's weight climbing over ~30 seconds.
+    sensor detects a bottle and the ESP32 confirms it via the break-beam.
+    Here we simulate a short detection window instead of a real sensor.
+
     """
     user, uid, _ = get_or_create_user(request)
-    _active_deposits[user.id] = {"started_at": timezone.now(), "final_kg": None}
+    _active_deposits[user.id] = {"started_at": timezone.now()}
     return JsonResponse({"ok": True})
 
 
@@ -207,8 +208,8 @@ def api_voucher_generate(request):
     points_cost = int(body.get("points", 0))
     user, uid, _ = get_or_create_user(request)
 
-    MIN_KG_EQUIVALENT_POINTS = 50  # mirrors the 0.50kg minimum shown on the kiosk
-    if points_cost < MIN_KG_EQUIVALENT_POINTS:
+    MIN_POINTS_FOR_VOUCHER = 50  # mirrors the 0.50kg minimum shown on the kiosk
+    if points_cost < MIN_POINTS_FOR_VOUCHER:
         return JsonResponse({"error": "below_minimum"}, status=400)
     if user.points_balance < points_cost:
         return JsonResponse({"error": "insufficient_points"}, status=400)
