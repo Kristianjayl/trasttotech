@@ -6,7 +6,7 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.utils import timezone
 from datetime import timedelta
 
-from .models import KioskUser, PlasticRate, WifiRate, Transaction, Voucher
+from .models import KioskUser, BottleRate, WifiRate, Transaction, Voucher
 
 COOKIE_NAME = "kiosk_uid"
 
@@ -31,16 +31,10 @@ def _set_uid_cookie(response, uid):
     response.set_cookie(COOKIE_NAME, uid, max_age=60 * 60 * 24 * 365, samesite="Lax")
     return response
 
-
+#--------------------------------------------------------------- utils ---
 def _seed_rates_if_empty():
-    if not PlasticRate.objects.exists():
-        PlasticRate.objects.bulk_create([
-            PlasticRate(weight_kg=0.10, points=10),
-            PlasticRate(weight_kg=0.25, points=25),
-            PlasticRate(weight_kg=0.50, points=50),
-            PlasticRate(weight_kg=1.00, points=100),
-            PlasticRate(weight_kg=2.00, points=200),
-        ])
+    if not BottleRate.objects.exists():
+        BottleRate.objects.create(points_per_bottle=10)
     if not WifiRate.objects.exists():
         WifiRate.objects.bulk_create([
             WifiRate(points=10, minutes=15, label="15 Minutes"),
@@ -75,12 +69,14 @@ def _user_state(user):
 def portal(request):
     _seed_rates_if_empty()
     user, uid, created_cookie = get_or_create_user(request)
-    plastic_rates = list(PlasticRate.objects.values("weight_kg", "points"))
+    bottle_rate = BottleRate.objects.first()
     wifi_rates = list(WifiRate.objects.values("points", "minutes", "label"))
+    piece_rates = [{"pieces": w["points"] // bottle_rate.points_per_bottle, "points": w["points"], "label": w["label"]} for w in wifi_rates]
     response = render(request, "kiosk/portal.html", {
         "state": _user_state(user),
-        "plastic_rates": plastic_rates,
+        "piece_rates": piece_rates,
         "wifi_rates": wifi_rates,
+        "points_per_bottle": bottle_rate.points_per_bottle,
     })
     if created_cookie:
         _set_uid_cookie(response, uid)
@@ -113,10 +109,10 @@ def api_insert_start(request):
 @require_GET
 def api_insert_poll(request):
     """
-    Simulated load-cell reading. Replace this function's body with a real
-    HTTP call to the machine's current weight endpoint when hardware is
-    connected -- the response shape should stay the same so the front-end
-    doesn't need to change.
+    Simulated bottle detection. Replace this with a real check against
+    the IR sensor's break-beam count when hardware is connected.
+    Per-piece means we don't care about weight anymore -- just "was a
+    bottle detected, yes or no."
     """
     user, uid, _ = get_or_create_user(request)
     session = _active_deposits.get(user.id)
@@ -124,13 +120,11 @@ def api_insert_poll(request):
         return JsonResponse({"error": "no active deposit"}, status=400)
 
     elapsed = (timezone.now() - session["started_at"]).total_seconds()
-    seconds_left = max(0, 30 - int(elapsed))
-    weight_kg = round(min(0.25, (elapsed / 12) * 0.25), 2)
-    if seconds_left == 0 and session["final_kg"] is None:
-        session["final_kg"] = weight_kg
+    seconds_left = max(0, 4 - int(elapsed))  # short window, just confirming presence
+    if seconds_left == 0 and session.get("confirmed_piece") is None:
+        session["confirmed_piece"] = True
 
     return JsonResponse({
-        "weight_kg": weight_kg,
         "seconds_left": seconds_left,
         "done": seconds_left == 0,
     })
@@ -139,25 +133,25 @@ def api_insert_poll(request):
 @require_POST
 def api_insert_confirm(request):
     """
-    Finalize the deposit: look up points for the weight against
-    PlasticRate, credit the user, and log a Transaction. This is the
-    exact place a real deposit event from the ESP32 would land.
+    Finalize the deposit: award points_per_bottle for 1 confirmed piece.
+    On real hardware, this fires once the IR break-beam sensor confirms
+    a bottle actually passed through.
     """
     user, uid, _ = get_or_create_user(request)
     session = _active_deposits.pop(user.id, None)
-    weight_kg = (session or {}).get("final_kg") or 0
+    piece_confirmed = bool((session or {}).get("confirmed_piece"))
 
-    rate = PlasticRate.objects.filter(weight_kg__lte=weight_kg).order_by("-weight_kg").first()
-    points = rate.points if rate else 0
+    rate = BottleRate.objects.first()
+    points = rate.points_per_bottle if (rate and piece_confirmed) else 0
 
     if points > 0:
         user.points_balance += points
-        user.total_kg += weight_kg
+        user.total_pieces += 1
         user.save()
         Transaction.objects.create(user=user, type=Transaction.DEPOSIT,
-                                    weight_kg=weight_kg, points_delta=points)
+                                    pieces=1, points_delta=points)
 
-    return JsonResponse({"weight_kg": weight_kg, "points_awarded": points,
+    return JsonResponse({"pieces": 1 if points > 0 else 0, "points_awarded": points,
                           "new_balance": user.points_balance})
 
 

@@ -95,7 +95,7 @@
 
   let pollHandle;
   function resetWeighUI(){
-    document.getElementById('weighCountdown').textContent = '30';
+    document.getElementById('weighCountdown').textContent = '4';
     document.getElementById('weighBarFill').style.width = '0%';
     document.getElementById('weighKg').textContent = '0.00';
     document.getElementById('weighActions').style.display = '';
@@ -114,8 +114,8 @@
   function pollWeight(){
     fetch('/api/insert/poll/').then(r => r.json()).then(d => {
       document.getElementById('weighCountdown').textContent = d.seconds_left;
-      document.getElementById('weighKg').textContent = d.weight_kg.toFixed(2);
-      document.getElementById('weighBarFill').style.width = Math.min(100, (d.weight_kg/0.25)*100) + '%';
+      document.getElementById('weighBarFill').style.width = ((4-d.seconds_left)/4*100) + '%';
+      document.getElementById('weighKg').textContent = d.done ? '1 pc' : '...';
       if (d.done) {
         clearInterval(pollHandle);
         confirmDeposit();
@@ -135,7 +135,7 @@
         const canVoucher = d.new_balance >= VOUCHER_MIN_POINTS;
         box.innerHTML = `
           <div class="weigh-hint" style="background:#E7F7EA; color:#1F6B33;">
-            +${d.points_awarded} points awarded for ${d.weight_kg.toFixed(2)}kg. Balance: ${d.new_balance} pts.
+            +${d.points_awarded} points awarded for 1 bottle. Balance: ${d.new_balance} pts.
           </div>
           <div style="display:flex; gap:8px; margin-bottom:6px;">
             <button id="btnGenVoucher" style="flex:1; border:none; border-radius:7px; padding:10px; background:var(--btn-purple); color:#fff; font-weight:700; cursor:pointer;" ${canVoucher ? '' : 'disabled'}>Generate Voucher</button>

@@ -71,7 +71,7 @@
 
     <div class="weigh-hint">
       Please insert a minimum of 1 bottle for WiFi.<br>
-      At least 0.50kg is needed to generate a voucher instead.
+      At least 5 bottles' worth of points is needed to generate a voucher instead.
     </div>
 
     <div id="weighActions">
@@ -114,14 +114,12 @@
     <div class="sub">Plastic bottle weight &rarr; points &rarr; WiFi time</div>
 
     <table class="rates">
-      <tr><th>Bottle weight</th><th>Points</th><th>WiFi time</th></tr>
-      {% for p in plastic_rates %}
+      <tr><th>Bottles</th><th>Points</th><th>WiFi time</th></tr>
+      {% for p in piece_rates %}
       <tr>
-        <td>{{ p.weight_kg }} kg{% if p.weight_kg == 0.1 %} (100 g){% endif %}</td>
+        <td>{{ p.pieces }} bottle{{ p.pieces|pluralize }}</td>
         <td>{{ p.points }} pts</td>
-        <td>
-          {% for w in wifi_rates %}{% if w.points == p.points %}{{ w.label }}{% endif %}{% endfor %}
-        </td>
+        <td>{{ p.label }}</td>
       </tr>
       {% endfor %}
     </table>

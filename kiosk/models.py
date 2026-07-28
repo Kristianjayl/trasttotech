@@ -1,6 +1,6 @@
 from django.db import models
 
-
+# this is a record of a kiosk user, identified by device_id (which is a cookie-based id formatted to look like a MAC address)
 class KioskUser(models.Model):
     """
     A client identified by device.
@@ -11,7 +11,7 @@ class KioskUser(models.Model):
     """
     device_id = models.CharField(max_length=64, unique=True)
     points_balance = models.IntegerField(default=0)
-    total_kg = models.FloatField(default=0)
+    total_pieces = models.IntegerField(default=0)
     remaining_seconds = models.IntegerField(default=0)
     paused = models.BooleanField(default=False)
     paused_at = models.DateTimeField(null=True, blank=True)
@@ -22,15 +22,15 @@ class KioskUser(models.Model):
         h = self.device_id.replace("-", "")[:12].upper().ljust(12, "0")
         return ":".join(h[i:i + 2] for i in range(0, 12, 2))
 
+# this is a record of a rate for redeeming points for bottles
+class BottleRate(models.Model):
+    points_per_bottle = models.IntegerField(default=10)
 
-class PlasticRate(models.Model):
-    weight_kg = models.FloatField()
-    points = models.IntegerField()
-
-    class Meta:
-        ordering = ["weight_kg"]
+    def __str__(self):
+        return f"{self.points_per_bottle} pts per bottle"
 
 
+# this is a record of a rate for redeeming wifi minutes for points
 class WifiRate(models.Model):
     points = models.IntegerField()
     minutes = models.IntegerField()
@@ -39,7 +39,7 @@ class WifiRate(models.Model):
     class Meta:
         ordering = ["points"]
 
-
+# this is a record of a transaction that affects a user's points balance, and possibly other fields like wifi_minutes or pieces
 class Transaction(models.Model):
     DEPOSIT = "deposit"
     WIFI_REDEEM = "wifi_redeem"
@@ -48,7 +48,7 @@ class Transaction(models.Model):
 
     user = models.ForeignKey(KioskUser, on_delete=models.CASCADE, related_name="transactions")
     type = models.CharField(max_length=20, choices=TYPE_CHOICES)
-    weight_kg = models.FloatField(null=True, blank=True)
+    pieces = models.IntegerField(null=True, blank=True)
     points_delta = models.IntegerField()
     wifi_minutes = models.IntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -56,7 +56,7 @@ class Transaction(models.Model):
     class Meta:
         ordering = ["-created_at"]
 
-
+# this is a record of a voucher that can be redeemed for points
 class Voucher(models.Model):
     PENDING, REDEEMED, INVALID = "pending", "redeemed", "invalid"
     STATUS_CHOICES = [(PENDING, "Pending"), (REDEEMED, "Redeemed"), (INVALID, "Invalid")]
