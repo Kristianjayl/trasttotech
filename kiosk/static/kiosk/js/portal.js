@@ -123,6 +123,9 @@
     });
   }
 
+  // NOTE: must match MIN_POINTS_FOR_VOUCHER in views.py (api_voucher_generate).
+  // These are two separate constants that happen to share a value -- if you
+  // change one, change the other too.
   const VOUCHER_MIN_POINTS = 50;
 
   function confirmDeposit(){
@@ -152,7 +155,7 @@
       else {
         box.innerHTML = `
           <div class="weigh-hint" style="background:#FBE9E6; color:#9A2E1C;">
-            Not bottle detected. Please try again.
+            No bottle detected. Please try again.
           </div>
           <button class="cancel-link" data-close="trayInsert">Close</button>`;
       }

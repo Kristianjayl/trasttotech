@@ -1,0 +1,29 @@
+{% extends "adminpanel/base.html" %}
+{% block title %}Rates{% endblock %}
+{% block page_title %}Rates{% endblock %}
+{% block page_sub %}Points-per-bottle and points-to-WiFi-time conversion{% endblock %}
+
+{% block content %}
+<form method="post">
+  {% csrf_token %}
+  <div class="grid cols-2">
+    <div class="card">
+      <h3 style="margin-bottom:14px;">Points per bottle</h3>
+      <div class="field-wrap">
+        <label class="field">Points awarded per bottle</label>
+        <input type="number" name="points_per_bottle" value="{{ bottle_rate.points_per_bottle }}">
+      </div>
+    </div>
+    <div class="card">
+      <h3 style="margin-bottom:14px;">Points to WiFi Time</h3>
+      {% for wr in wifi_rates %}
+      <div class="field-wrap">
+        <label class="field">{{ wr.label }}</label>
+        <input type="number" name="wifi_points_{{ wr.id }}" value="{{ wr.points }}">
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  <button type="submit" class="btn primary" style="margin-top:16px;">Save Changes</button>
+</form>
+{% endblock %}

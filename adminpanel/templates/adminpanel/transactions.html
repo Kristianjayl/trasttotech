@@ -1,0 +1,33 @@
+{% extends "adminpanel/base.html" %}
+{% block title %}Transactions{% endblock %}
+{% block page_title %}Transactions{% endblock %}
+{% block page_sub %}Every bottle deposit, redemption, and voucher claim{% endblock %}
+
+{% block content %}
+<div class="card" style="margin-bottom:16px;">
+  <form method="get">
+    <select name="type" onchange="this.form.submit()">
+      <option value="all" {% if type_filter == "all" %}selected{% endif %}>All types</option>
+      {% for value, label in type_choices %}
+      <option value="{{ value }}" {% if type_filter == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </form>
+</div>
+<div class="card">
+  <table>
+    <tr><th>Time</th><th>User</th><th>Type</th><th>Pieces</th><th>KG</th><th>Points</th><th>WiFi Min</th></tr>
+    {% for t in transactions %}
+    <tr class="rowhover">
+      <td>{{ t.created_at }}</td>
+      <td>{{ t.user.mac_display }}</td>
+      <td><span class="pill gray">{{ t.get_type_display }}</span></td>
+      <td>{{ t.pieces|default:"-" }}</td>
+      <td>{{ t.weight_kg|default:"-" }}</td>
+      <td>{{ t.points_delta }}</td>
+      <td>{{ t.wifi_minutes|default:"-" }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

@@ -49,6 +49,7 @@ class Transaction(models.Model):
     user = models.ForeignKey(KioskUser, on_delete=models.CASCADE, related_name="transactions")
     type = models.CharField(max_length=20, choices=TYPE_CHOICES)
     pieces = models.IntegerField(null=True, blank=True)
+    weight_kg = models.FloatField(null=True, blank=True)  # tracking/reporting only -- NOT used for points
     points_delta = models.IntegerField()
     wifi_minutes = models.IntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

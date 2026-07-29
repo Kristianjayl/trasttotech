@@ -1,0 +1,46 @@
+{% extends "adminpanel/base.html" %}
+{% block title %}Overview{% endblock %}
+{% block page_title %}Overview{% endblock %}
+{% block page_sub %}{{ today }}{% endblock %}
+
+{% block content %}
+<div class="grid" style="grid-template-columns:repeat(5,1fr); margin-bottom:16px;">
+  <div class="card kpi">
+    <div class="label">Total bottles collected</div>
+    <div class="value">{{ total_pieces }}</div>
+  </div>
+  <div class="card kpi">
+    <div class="label">Total plastic (kg)</div>
+    <div class="value">{{ total_kg }}</div>
+  </div>
+  <div class="card kpi">
+    <div class="label">Points issued</div>
+    <div class="value">{{ points_issued }}</div>
+  </div>
+  <div class="card kpi">
+    <div class="label">WiFi sessions</div>
+    <div class="value">{{ wifi_sessions }}</div>
+  </div>
+  <div class="card kpi">
+    <div class="label">Active users</div>
+    <div class="value">{{ active_users }}</div>
+  </div>
+</div>
+
+<div class="card">
+  <h3>Recent Transactions</h3>
+  <div class="hint" style="margin-bottom:14px;">Latest activity across the system</div>
+  <table>
+    <tr><th>Time</th><th>User</th><th>Type</th><th>Pieces</th><th>Points</th></tr>
+    {% for t in recent_transactions %}
+    <tr class="rowhover">
+      <td>{{ t.created_at }}</td>
+      <td>{{ t.user.mac_display }}</td>
+      <td><span class="pill gray">{{ t.get_type_display }}</span></td>
+      <td>{{ t.pieces|default:"-" }}</td>
+      <td>{{ t.points_delta }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

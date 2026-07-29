@@ -208,7 +208,7 @@ def api_voucher_generate(request):
     points_cost = int(body.get("points", 0))
     user, uid, _ = get_or_create_user(request)
 
-    MIN_POINTS_FOR_VOUCHER = 50  # mirrors the 0.50kg minimum shown on the kiosk
+    MIN_POINTS_FOR_VOUCHER = 50  # mirrors the 5-bottle minimum, shown on the kiosk
     if points_cost < MIN_POINTS_FOR_VOUCHER:
         return JsonResponse({"error": "below_minimum"}, status=400)
     if user.points_balance < points_cost:

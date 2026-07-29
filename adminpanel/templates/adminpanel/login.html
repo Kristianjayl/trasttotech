@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>TrashToTech — Staff Login</title>
+<style>
+  body{ font-family: sans-serif; background:#1F2A24; color:#fff; display:flex; align-items:center; justify-content:center; height:100vh; margin:0; }
+  form{ background:#2A3830; padding:32px; border-radius:12px; width:280px; }
+  h2{ margin-top:0; }
+  input{ width:100%; padding:10px; margin-bottom:12px; border-radius:6px; border:1px solid #444; background:#1a231e; color:#fff; }
+  button{ width:100%; padding:10px; background:#4D9B3D; border:none; border-radius:6px; color:#fff; font-weight:bold; cursor:pointer; }
+</style>
+</head>
+<body>
+  <form method="post">
+    {% csrf_token %}
+    <h2>TrashToTech Admin</h2>
+    {{ form.username.label_tag }} {{ form.username }}
+    {{ form.password.label_tag }} {{ form.password }}
+    <button type="submit">Log In</button>
+  </form>
+</body>
+</html>

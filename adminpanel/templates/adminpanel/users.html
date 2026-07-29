@@ -1,0 +1,20 @@
+{% extends "adminpanel/base.html" %}
+{% block title %}Users{% endblock %}
+{% block page_title %}Users{% endblock %}
+{% block page_sub %}Registered client accounts and point balances{% endblock %}
+
+{% block content %}
+<div class="card">
+  <table>
+    <tr><th>Device</th><th>Points</th><th>Total Pieces</th><th>Joined</th></tr>
+    {% for u in users %}
+    <tr class="rowhover">
+      <td>{{ u.mac_display }}</td>
+      <td>{{ u.points_balance }}</td>
+      <td>{{ u.total_pieces }}</td>
+      <td>{{ u.created_at }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

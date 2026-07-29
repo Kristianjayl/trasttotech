@@ -1,0 +1,30 @@
+{% extends "adminpanel/base.html" %}
+{% block title %}Rewards{% endblock %}
+{% block page_title %}Rewards{% endblock %}
+{% block page_sub %}Voucher settings and redemption history{% endblock %}
+
+{% block content %}
+<div class="grid cols-3" style="margin-bottom:16px;">
+  <div class="card kpi"><div class="label">Generated</div><div class="value">{{ stats.generated }}</div></div>
+  <div class="card kpi"><div class="label">Redeemed</div><div class="value">{{ stats.redeemed }}</div></div>
+  <div class="card kpi"><div class="label">Pending</div><div class="value">{{ stats.pending }}</div></div>
+</div>
+<div class="card">
+  <table>
+    <tr><th>Code</th><th>User</th><th>Points Used</th><th>Status</th><th>Generated</th></tr>
+    {% for v in vouchers %}
+    <tr class="rowhover">
+      <td>{{ v.code }}</td>
+      <td>{{ v.user.mac_display }}</td>
+      <td>{{ v.points_used }}</td>
+      <td>
+        {% if v.status == "redeemed" %}<span class="pill green">● Redeemed</span>
+        {% elif v.status == "pending" %}<span class="pill amber">● Pending</span>
+        {% else %}<span class="pill red">● Invalid</span>{% endif %}
+      </td>
+      <td>{{ v.generated_at }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}
