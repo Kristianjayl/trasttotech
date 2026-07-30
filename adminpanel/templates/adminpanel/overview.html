@@ -4,6 +4,8 @@
 {% block page_sub %}{{ today }}{% endblock %}
 
 {% block content %}
+<h2 style="font-family:'Space Grotesk', sans-serif; font-weight:600; margin-bottom:16px; color:var(--text);">Welcome, {{ user.username }}!</h2>
+
 <div class="grid" style="grid-template-columns:repeat(5,1fr); margin-bottom:16px;">
   <div class="card kpi">
     <div class="label">Total bottles collected</div>

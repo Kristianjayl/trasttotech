@@ -1,0 +1,33 @@
+{% extends "adminpanel/base.html" %}
+{% block title %}{% if mode == "create" %}Add User{% else %}Edit User{% endif %}{% endblock %}
+{% block page_title %}{% if mode == "create" %}Add User{% else %}Edit User{% endif %}{% endblock %}
+{% block page_sub %}{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width:480px;">
+  <form method="post">
+    {% csrf_token %}
+    {% if mode == "create" %}
+    <div class="field-wrap">
+      <label class="field">Device ID</label>
+      <input type="text" name="device_id" required>
+    </div>
+    {% else %}
+    <div class="field-wrap">
+      <label class="field">Device</label>
+      <input type="text" value="{{ kiosk_user.mac_display }}" disabled>
+    </div>
+    {% endif %}
+    <div class="field-wrap">
+      <label class="field">Points balance</label>
+      <input type="number" name="points_balance" value="{{ kiosk_user.points_balance|default:0 }}">
+    </div>
+    <div class="field-wrap">
+      <label class="field">Total pieces</label>
+      <input type="number" name="total_pieces" value="{{ kiosk_user.total_pieces|default:0 }}">
+    </div>
+    <button type="submit" class="btn primary">{% if mode == "create" %}Create{% else %}Save Changes{% endif %}</button>
+    <a href="{% url 'staff_users' %}" class="btn ghost">Cancel</a>
+  </form>
+</div>
+{% endblock %}

@@ -51,8 +51,14 @@
     <input type="text" id="voucherInput" placeholder="Enter voucher here" maxlength="20">
     <button id="voucherSubmit">SUBMIT</button>
   </div>
-
+  
+  <!--Footer-->
   <div class="footnote">Insert a plastic bottle to earn points &middot; Points convert to WiFi time</div>
+  <div class="footnote" style="margin-top:6px;">
+    <a href="#" id="btnAbout" style="color:inherit;">About</a>
+    &nbsp;·&nbsp;
+    <a href="#" id="btnPrivacy" style="color:inherit;">Privacy Policy</a>
+  </div>
 </div>
 
 <!-- ============ TRAY: INSERT BOTTLE ============ -->
@@ -123,6 +129,32 @@
       </tr>
       {% endfor %}
     </table>
+  </div>
+</div>
+
+<!-- ============ TRAY: ABOUT ============ -->
+<div class="tray-backdrop" id="trayAbout">
+  <div class="tray">
+    <button class="close-x" data-close="trayAbout">&times;</button>
+    <div class="tray-handle"></div>
+    <h2>About TrashToTech</h2>
+    <div class="sub">A capstone project for Barangay 39, Calvary Hill, Tacloban City</div>
+    <p style="font-size:13px; color:var(--muted); line-height:1.6;">
+      Insert a plastic bottle, earn points based on how many you deposit, and redeem those points for WiFi time or a voucher. Built to reduce plastic waste while giving residents free internet access.
+    </p>
+  </div>
+</div>
+
+<!-- ============ TRAY: PRIVACY POLICY ============ -->
+<div class="tray-backdrop" id="trayPrivacy">
+  <div class="tray">
+    <button class="close-x" data-close="trayPrivacy">&times;</button>
+    <div class="tray-handle"></div>
+    <h2>Privacy Policy</h2>
+    <div class="sub">What this machine collects</div>
+    <p style="font-size:13px; color:var(--muted); line-height:1.6;">
+      This machine assigns your device an anonymous ID to track your points and WiFi sessions. No personal information is collected unless you voluntarily sign up. Data is used only to operate the rewards system for this project.
+    </p>
   </div>
 </div>
 

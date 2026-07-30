@@ -1,0 +1,15 @@
+{% extends "adminpanel/base.html" %}
+{% block title %}Delete User{% endblock %}
+{% block page_title %}Delete User{% endblock %}
+{% block page_sub %}This cannot be undone{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width:480px;">
+  <p>Are you sure you want to delete <b>{{ kiosk_user.mac_display }}</b>? This will also delete their transaction and voucher history.</p>
+  <form method="post">
+    {% csrf_token %}
+    <button type="submit" class="btn" style="background:var(--red); border-color:var(--red);">Yes, Delete</button>
+    <a href="{% url 'staff_users' %}" class="btn ghost">Cancel</a>
+  </form>
+</div>
+{% endblock %}

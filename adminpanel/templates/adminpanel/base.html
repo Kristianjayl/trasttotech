@@ -31,12 +31,14 @@
     <div class="navitem {% if request.resolver_match.url_name == 'staff_rewards' %}active{% endif %}">
       <a href="{% url 'staff_rewards' %}" style="color:inherit; text-decoration:none; display:flex; gap:10px; width:100%;">Rewards</a>
     </div>
-    <div class="navitem {% if request.resolver_match.url_name == 'staff_rates' %}active{% endif %}">
-      <a href="{% url 'staff_rates' %}" style="color:inherit; text-decoration:none; display:flex; gap:10px; width:100%;">Rates</a>
-    </div>
-    <div class="navitem {% if request.resolver_match.url_name == 'staff_settings' %}active{% endif %}">
-      <a href="{% url 'staff_settings' %}" style="color:inherit; text-decoration:none; display:flex; gap:10px; width:100%;">Settings</a>
-    </div>
+    {% if user.staffprofile.role == "admin" %}
+      <div class="navitem {% if request.resolver_match.url_name == 'staff_rates' %}active{% endif %}">
+        <a href="{% url 'staff_rates' %}" style="color:inherit; text-decoration:none; display:flex; gap:10px; width:100%;">Rates</a>
+      </div>
+      <div class="navitem {% if request.resolver_match.url_name == 'staff_settings' %}active{% endif %}">
+        <a href="{% url 'staff_settings' %}" style="color:inherit; text-decoration:none; display:flex; gap:10px; width:100%;">Settings</a>
+      </div>
+    {% endif %}
     <div class="navitem {% if request.resolver_match.url_name == 'staff_logs' %}active{% endif %}">
       <a href="{% url 'staff_logs' %}" style="color:inherit; text-decoration:none; display:flex; gap:10px; width:100%;">Logs</a>
     </div>
@@ -44,6 +46,11 @@
   <div class="sidebar-foot">
     <span class="op-dot"></span>
     <span class="who"><b>{{ user.username }}</b>{{ user.staffprofile.get_role_display }}</span>
+  </div>
+  <div style="padding:10px 12px; font-size:11.5px; color:var(--text-faint);">
+    <a href="{% url 'staff_about' %}" style="color:inherit; text-decoration:underline;">About</a>
+    &nbsp;·&nbsp;
+    <a href="{% url 'staff_privacy' %}" style="color:inherit; text-decoration:underline;">Privacy Policy</a>
   </div>
 </div>
 
@@ -64,6 +71,8 @@
     {% block content %}{% endblock %}
   </div>
 </main>
+
+
 
 </body>
 </html>

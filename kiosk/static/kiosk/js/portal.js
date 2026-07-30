@@ -7,7 +7,7 @@
     const match = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
     return match ? match.pop() : '';
   }
-  
+
   function csrfFetch(url, opts) {
     opts = opts || {};
     opts.headers = Object.assign({
@@ -16,7 +16,7 @@
     }, opts.headers || {});
     return fetch(url, opts);
   }
-  
+
   function fmtTime(totalSeconds) {
     totalSeconds = Math.max(0, totalSeconds | 0);
     const h = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
@@ -84,6 +84,10 @@
   document.getElementById('btnRedeem').addEventListener('click', () => openTray('trayRedeem'));
   document.getElementById('btnRates').addEventListener('click', () => openTray('trayRates'));
 
+  // ---- About / Privacy Policy footer links ----
+  document.getElementById('btnAbout').addEventListener('click', (e) => { e.preventDefault(); openTray('trayAbout'); });
+  document.getElementById('btnPrivacy').addEventListener('click', (e) => { e.preventDefault(); openTray('trayPrivacy'); });
+
   document.getElementById('btnPause').addEventListener('click', () => {
     csrfFetch('/api/pause/', {method:'POST'}).then(r => r.json()).then(s => {
       paused = s.paused;
@@ -147,11 +151,11 @@
 
           ${canVoucher ? '' : `<div style="font-size:11.5px; color:var(--muted); margin-bottom:6px;">Needs ${VOUCHER_MIN_POINTS} pts (5 bottles) minimum for a voucher.</div>`}
           <button class="cancel-link" data-close="trayInsert">Done</button>`;
-        
+
         showToast('+' + d.points_awarded + ' points awarded', 'success');
         const genBtn = document.getElementById('btnGenVoucher');
         if (genBtn) genBtn.addEventListener('click', () => generateVoucher(box));
-      } 
+      }
       else {
         box.innerHTML = `
           <div class="weigh-hint" style="background:#FBE9E6; color:#9A2E1C;">

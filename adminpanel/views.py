@@ -1,9 +1,10 @@
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.db.models import Sum, Count, Q
 from django.utils import timezone
 from datetime import timedelta
+from .decorators import role_required
 
 from kiosk.models import KioskUser, Transaction, Voucher, BottleRate, WifiRate
 
@@ -39,12 +40,44 @@ def overview(request):
         "today": today,
     })
 
-
 @login_required
 def users_list(request):
     users = KioskUser.objects.order_by("-points_balance")
     return render(request, "adminpanel/users.html", {"users": users})
 
+# Admin-only view for creating new users
+@role_required('admin')
+def user_create(request):
+    if request.method == "POST":
+        KioskUser.objects.create(
+            device_id=request.POST.get("device_id"),
+            points_balance=int(request.POST.get("points_balance") or 0),
+            total_pieces=int(request.POST.get("total_pieces") or 0),
+        )
+        return redirect("staff_users")
+    return render(request, "adminpanel/user_form.html", {"mode": "create"})
+
+# Admin-only view for editing existing users
+@role_required('admin')
+def user_edit(request, user_id):
+    kiosk_user = get_object_or_404(KioskUser, id=user_id)
+    if request.method == "POST":
+        kiosk_user.points_balance = int(request.POST.get("points_balance") or 0)
+        kiosk_user.total_pieces = int(request.POST.get("total_pieces") or 0)
+        kiosk_user.save()
+        return redirect("staff_users")
+    return render(request, "adminpanel/user_form.html", {"mode": "edit", "kiosk_user": kiosk_user})
+
+# Admin-only view for deleting users
+@role_required('admin')
+def user_delete(request, user_id):
+    kiosk_user = get_object_or_404(KioskUser, id=user_id)
+    if request.method == "POST":
+        kiosk_user.delete()
+        return redirect("staff_users")
+    return render(request, "adminpanel/user_confirm_delete.html", {"kiosk_user": kiosk_user})
+
+# End of Crud #
 
 @login_required
 def transactions_list(request):
@@ -70,7 +103,7 @@ def rewards(request):
     return render(request, "adminpanel/rewards.html", {"vouchers": vouchers, "stats": stats})
 
 
-@login_required
+@role_required('admin')
 def rates(request):
     if request.method == "POST":
         bottle_rate = BottleRate.objects.first()
@@ -90,7 +123,7 @@ def rates(request):
     })
 
 
-@login_required
+@role_required('admin')
 def settings_page(request):
     return render(request, "adminpanel/settings.html")
 
@@ -102,3 +135,12 @@ def logs(request):
     # ideally via a dedicated Log model. Fine as a placeholder for now.
     entries = Transaction.objects.select_related("user").order_by("-created_at")[:100]
     return render(request, "adminpanel/logs.html", {"entries": entries})
+
+@login_required
+def about(request):
+    return render(request, "adminpanel/about.html")
+
+
+@login_required
+def privacy_policy(request):
+    return render(request, "adminpanel/privacy_policy.html")

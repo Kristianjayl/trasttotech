@@ -5,14 +5,28 @@
 
 {% block content %}
 <div class="card">
+  {% if user.staffprofile.role == "admin" %}
+  <div style="margin-bottom:14px; text-align:right;">
+    <a href="{% url 'staff_user_create' %}" class="btn primary">+ Add User</a>
+  </div>
+  {% endif %}
   <table>
-    <tr><th>Device</th><th>Points</th><th>Total Pieces</th><th>Joined</th></tr>
+    <tr>
+      <th>Device</th><th>Points</th><th>Total Pieces</th><th>Joined</th>
+      {% if user.staffprofile.role == "admin" %}<th></th>{% endif %}
+    </tr>
     {% for u in users %}
     <tr class="rowhover">
       <td>{{ u.mac_display }}</td>
       <td>{{ u.points_balance }}</td>
       <td>{{ u.total_pieces }}</td>
       <td>{{ u.created_at }}</td>
+      {% if user.staffprofile.role == "admin" %}
+      <td>
+        <a href="{% url 'staff_user_edit' u.id %}" class="btn ghost" style="padding:5px 10px; font-size:11.5px;">Edit</a>
+        <a href="{% url 'staff_user_delete' u.id %}" class="btn ghost" style="padding:5px 10px; font-size:11.5px; color:var(--red);">Delete</a>
+      </td>
+      {% endif %}
     </tr>
     {% endfor %}
   </table>
