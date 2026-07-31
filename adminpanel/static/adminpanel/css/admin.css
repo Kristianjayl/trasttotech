@@ -193,3 +193,48 @@
   ::-webkit-scrollbar{ width:9px; height:9px; }
   ::-webkit-scrollbar-thumb{ background:var(--panel-3); border-radius:6px; }
   ::-webkit-scrollbar-track{ background:transparent; }
+
+
+  /* ===================== RESPONSIVE ===================== */
+
+.hamburger{
+  display:none;
+  background:none; border:none; cursor:pointer;
+  flex-direction:column; gap:4px; padding:6px;
+}
+.hamburger span{ width:22px; height:2px; background:var(--text); display:block; border-radius:2px; }
+
+.sidebar-backdrop{
+  display:none;
+  position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:39;
+}
+.sidebar-backdrop.show{ display:block; }
+
+@media (max-width: 900px){
+  .hamburger{ display:flex; }
+
+  .sidebar{
+    position:fixed; top:0; left:0; bottom:0; z-index:40;
+    transform:translateX(-100%);
+    transition:transform .22s ease;
+    width:240px;
+  }
+  .sidebar.open{ transform:translateX(0); }
+
+  main{ width:100%; }
+  .topbar{ padding:16px 18px; }
+  .content{ padding:18px; }
+
+  .grid.cols-4, .grid.cols-3, .grid.cols-2{
+    grid-template-columns: 1fr !important;
+  }
+
+  .card{ padding:14px; }
+
+  table{ display:block; overflow-x:auto; white-space:nowrap; }
+}
+
+@media (max-width: 480px){
+  .topbar h1{ font-size:17px; }
+  .led-points, .value{ font-size:24px !important; }
+}

@@ -32,30 +32,38 @@
       <a href="{% url 'staff_rewards' %}" style="color:inherit; text-decoration:none; display:flex; gap:10px; width:100%;">Rewards</a>
     </div>
     {% if user.staffprofile.role == "admin" %}
-      <div class="navitem {% if request.resolver_match.url_name == 'staff_rates' %}active{% endif %}">
-        <a href="{% url 'staff_rates' %}" style="color:inherit; text-decoration:none; display:flex; gap:10px; width:100%;">Rates</a>
-      </div>
-      <div class="navitem {% if request.resolver_match.url_name == 'staff_settings' %}active{% endif %}">
-        <a href="{% url 'staff_settings' %}" style="color:inherit; text-decoration:none; display:flex; gap:10px; width:100%;">Settings</a>
-      </div>
+    <div class="navitem {% if request.resolver_match.url_name == 'staff_rates' %}active{% endif %}">
+      <a href="{% url 'staff_rates' %}" style="color:inherit; text-decoration:none; display:flex; gap:10px; width:100%;">Rates</a>
+    </div>
+    <div class="navitem {% if request.resolver_match.url_name == 'staff_settings' %}active{% endif %}">
+      <a href="{% url 'staff_settings' %}" style="color:inherit; text-decoration:none; display:flex; gap:10px; width:100%;">Settings</a>
+    </div>
+    <div class="navitem {% if request.resolver_match.url_name == 'staff_accounts_list' %}active{% endif %}">
+      <a href="{% url 'staff_accounts_list' %}" style="color:inherit; text-decoration:none; display:flex; gap:10px; width:100%;">Staff Accounts</a>
+    </div>
     {% endif %}
     <div class="navitem {% if request.resolver_match.url_name == 'staff_logs' %}active{% endif %}">
       <a href="{% url 'staff_logs' %}" style="color:inherit; text-decoration:none; display:flex; gap:10px; width:100%;">Logs</a>
     </div>
   </nav>
-  <div class="sidebar-foot">
-    <span class="op-dot"></span>
-    <span class="who"><b>{{ user.username }}</b>{{ user.staffprofile.get_role_display }}</span>
-  </div>
+
   <div style="padding:10px 12px; font-size:11.5px; color:var(--text-faint);">
     <a href="{% url 'staff_about' %}" style="color:inherit; text-decoration:underline;">About</a>
     &nbsp;·&nbsp;
     <a href="{% url 'staff_privacy' %}" style="color:inherit; text-decoration:underline;">Privacy Policy</a>
   </div>
+
+  <div class="sidebar-foot">
+    <span class="op-dot"></span>
+    <span class="who"><b>{{ user.username }}</b>{{ user.staffprofile.get_role_display }}</span>
+  </div>
 </div>
+
+<div class="sidebar-backdrop" id="sidebarBackdrop"></div>
 
 <main>
   <div class="topbar">
+    <button class="hamburger" id="sidebarToggle"><span></span><span></span><span></span></button>
     <div>
       <h1>{% block page_title %}{% endblock %}</h1>
       <div class="sub">{% block page_sub %}{% endblock %}</div>
@@ -72,7 +80,19 @@
   </div>
 </main>
 
+<script>
+  const sidebar = document.querySelector('.sidebar');
+  const backdrop = document.getElementById('sidebarBackdrop');
+  const toggle = document.getElementById('sidebarToggle');
 
+  function openSidebar(){ sidebar.classList.add('open'); backdrop.classList.add('show'); }
+  function closeSidebar(){ sidebar.classList.remove('open'); backdrop.classList.remove('show'); }
+
+  toggle.addEventListener('click', () => {
+    sidebar.classList.contains('open') ? closeSidebar() : openSidebar();
+  });
+  backdrop.addEventListener('click', closeSidebar);
+</script>
 
 </body>
 </html>

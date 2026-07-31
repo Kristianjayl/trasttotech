@@ -1,16 +1,27 @@
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
+from django.contrib.auth.models import User
 from django.shortcuts import render, redirect, get_object_or_404
 from django.db.models import Sum, Count, Q
 from django.utils import timezone
 from datetime import timedelta
-from .decorators import role_required
 
+from .decorators import role_required
+from .models import StaffProfile
 from kiosk.models import KioskUser, Transaction, Voucher, BottleRate, WifiRate
+
+
+# ============================================================
+# AUTH
+# ============================================================
 
 class StaffLoginView(LoginView):
     template_name = "adminpanel/login.html"
 
+
+# ============================================================
+# DASHBOARD
+# ============================================================
 
 @login_required
 def overview(request):
@@ -40,12 +51,18 @@ def overview(request):
         "today": today,
     })
 
+
+# ============================================================
+# CLIENT USERS (kiosk customers -- points, bottle counts, etc.)
+# Different from Staff Accounts below, which are Admin/SK dashboard logins.
+# ============================================================
+
 @login_required
 def users_list(request):
     users = KioskUser.objects.order_by("-points_balance")
     return render(request, "adminpanel/users.html", {"users": users})
 
-# Admin-only view for creating new users
+
 @role_required('admin')
 def user_create(request):
     if request.method == "POST":
@@ -57,7 +74,7 @@ def user_create(request):
         return redirect("staff_users")
     return render(request, "adminpanel/user_form.html", {"mode": "create"})
 
-# Admin-only view for editing existing users
+
 @role_required('admin')
 def user_edit(request, user_id):
     kiosk_user = get_object_or_404(KioskUser, id=user_id)
@@ -68,7 +85,7 @@ def user_edit(request, user_id):
         return redirect("staff_users")
     return render(request, "adminpanel/user_form.html", {"mode": "edit", "kiosk_user": kiosk_user})
 
-# Admin-only view for deleting users
+
 @role_required('admin')
 def user_delete(request, user_id):
     kiosk_user = get_object_or_404(KioskUser, id=user_id)
@@ -77,7 +94,10 @@ def user_delete(request, user_id):
         return redirect("staff_users")
     return render(request, "adminpanel/user_confirm_delete.html", {"kiosk_user": kiosk_user})
 
-# End of Crud #
+
+# ============================================================
+# TRANSACTIONS & REWARDS
+# ============================================================
 
 @login_required
 def transactions_list(request):
@@ -102,6 +122,11 @@ def rewards(request):
     }
     return render(request, "adminpanel/rewards.html", {"vouchers": vouchers, "stats": stats})
 
+
+# ============================================================
+# ADMIN-ONLY: RATES & SETTINGS
+# Restricted via @role_required('admin') -- SK cannot access these.
+# ============================================================
 
 @role_required('admin')
 def rates(request):
@@ -128,6 +153,64 @@ def settings_page(request):
     return render(request, "adminpanel/settings.html")
 
 
+# ============================================================
+# ADMIN-ONLY: STAFF ACCOUNTS (Admin/SK dashboard logins)
+# Different from Client Users above. Also restricted to Admin only.
+# ============================================================
+
+@role_required('admin')
+def staff_accounts_list(request):
+    profiles = StaffProfile.objects.select_related("user").order_by("user__username")
+    return render(request, "adminpanel/staff_accounts.html", {"profiles": profiles})
+
+
+@role_required('admin')
+def staff_account_create(request):
+    if request.method == "POST":
+        username = request.POST.get("username")
+        password = request.POST.get("password")
+        role = request.POST.get("role")
+        if User.objects.filter(username=username).exists():
+            return render(request, "adminpanel/staff_account_form.html", {
+                "mode": "create", "error": "That username already exists."
+            })
+        new_user = User.objects.create_user(username=username, password=password)
+        StaffProfile.objects.create(user=new_user, role=role)
+        return redirect("staff_accounts_list")
+    return render(request, "adminpanel/staff_account_form.html", {"mode": "create"})
+
+
+@role_required('admin')
+def staff_account_edit(request, profile_id):
+    profile = get_object_or_404(StaffProfile, id=profile_id)
+    if request.method == "POST":
+        profile.role = request.POST.get("role")
+        profile.save()
+        new_password = request.POST.get("password")
+        if new_password:
+            profile.user.set_password(new_password)
+            profile.user.save()
+        return redirect("staff_accounts_list")
+    return render(request, "adminpanel/staff_account_form.html", {"mode": "edit", "profile": profile})
+
+
+@role_required('admin')
+def staff_account_delete(request, profile_id):
+    profile = get_object_or_404(StaffProfile, id=profile_id)
+    if request.method == "POST":
+        if profile.user == request.user:
+            return render(request, "adminpanel/staff_account_confirm_delete.html", {
+                "profile": profile, "error": "You can't delete your own account while logged in as it."
+            })
+        profile.user.delete()  # deletes the User; StaffProfile cascades with it
+        return redirect("staff_accounts_list")
+    return render(request, "adminpanel/staff_account_confirm_delete.html", {"profile": profile})
+
+
+# ============================================================
+# LOGS
+# ============================================================
+
 @login_required
 def logs(request):
     # Reusing Transaction as the log source for now -- once hardware is
@@ -135,6 +218,11 @@ def logs(request):
     # ideally via a dedicated Log model. Fine as a placeholder for now.
     entries = Transaction.objects.select_related("user").order_by("-created_at")[:100]
     return render(request, "adminpanel/logs.html", {"entries": entries})
+
+
+# ============================================================
+# FOOTER PAGES
+# ============================================================
 
 @login_required
 def about(request):
