@@ -6,6 +6,7 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.utils import timezone
 from datetime import timedelta
 
+
 from .models import KioskUser, BottleRate, WifiRate, Transaction, Voucher
 
 COOKIE_NAME = "kiosk_uid"
@@ -134,26 +135,41 @@ def api_insert_poll(request):
 @require_POST
 def api_insert_confirm(request):
     """
-    Finalize the deposit: award points_per_bottle for 1 confirmed piece.
-    On real hardware, this fires once the IR break-beam sensor confirms
-    a bottle actually passed through.
+    Finalize the deposit. Currently simulates the clean/dirty camera
+    check with a random result (mostly clean, some dirty) -- replace
+    this with the real ESP32-CAM/Edge Impulse result once that's wired in.
+    Dirty bottles are rejected (0 points) but still logged, so Reports
+    has real data to chart.
     """
+    import random
     user, uid, _ = get_or_create_user(request)
     session = _active_deposits.pop(user.id, None)
     piece_confirmed = bool((session or {}).get("confirmed_piece"))
 
-    rate = BottleRate.objects.first()
-    points = rate.points_per_bottle if (rate and piece_confirmed) else 0
+    if not piece_confirmed:
+        return JsonResponse({"pieces": 0, "points_awarded": 0, "new_balance": user.points_balance, "condition": None})
 
-    if points > 0:
+    # SIMULATED -- swap for real camera classifier result later
+    is_clean = random.random() < 0.5  # ~50% clean, ~20% dirty, just for demo data
+    condition = Transaction.CLEAN if is_clean else Transaction.DIRTY
+
+    rate = BottleRate.objects.first()
+    points = rate.points_per_bottle if (is_clean and rate) else 0
+
+    if is_clean:
         user.points_balance += points
         user.total_pieces += 1
         user.save()
-        Transaction.objects.create(user=user, type=Transaction.DEPOSIT,
-                                    pieces=1, points_delta=points)
 
-    return JsonResponse({"pieces": 1 if points > 0 else 0, "points_awarded": points,
-                          "new_balance": user.points_balance})
+    simulated_weight = round(random.uniform(0.35, 0.55), 2)  # kg tracking, unrelated to points
+    Transaction.objects.create(user=user, type=Transaction.DEPOSIT,
+                                pieces=1, weight_kg=simulated_weight,
+                                condition=condition, points_delta=points)
+
+    return JsonResponse({
+        "pieces": 1, "points_awarded": points, "new_balance": user.points_balance,
+        "condition": condition,
+    })
 
 
 @require_POST

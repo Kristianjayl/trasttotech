@@ -46,10 +46,15 @@ class Transaction(models.Model):
     VOUCHER = "voucher"
     TYPE_CHOICES = [(DEPOSIT, "Deposit"), (WIFI_REDEEM, "WiFi Redeem"), (VOUCHER, "Voucher")]
 
+    CLEAN = "clean"
+    DIRTY = "dirty"
+    CONDITION_CHOICES = [(CLEAN, "Clean"), (DIRTY, "Dirty")]
+
     user = models.ForeignKey(KioskUser, on_delete=models.CASCADE, related_name="transactions")
     type = models.CharField(max_length=20, choices=TYPE_CHOICES)
     pieces = models.IntegerField(null=True, blank=True)
     weight_kg = models.FloatField(null=True, blank=True)  # tracking/reporting only -- NOT used for points
+    condition = models.CharField(max_length=10, choices=CONDITION_CHOICES, null=True, blank=True)  # only relevant for deposits
     points_delta = models.IntegerField()
     wifi_minutes = models.IntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

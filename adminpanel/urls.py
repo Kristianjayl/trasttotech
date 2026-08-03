@@ -27,6 +27,7 @@ urlpatterns = [
     # Restricted via @role_required('admin') in views.py -- SK cannot access these.
     path("rates/", views.rates, name="staff_rates"),
     path("settings/", views.settings_page, name="staff_settings"),
+    path("reports/", views.reports, name="staff_reports"),
 
     # ===================== ADMIN-ONLY: STAFF ACCOUNTS (Admin/SK logins) =====================
     # These manage YOUR team's dashboard logins -- who's Admin, who's SK.

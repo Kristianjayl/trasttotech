@@ -5,6 +5,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.db.models import Sum, Count, Q
 from django.utils import timezone
 from datetime import timedelta
+from django.db.models.functions import TruncMonth, TruncYear
 
 from .decorators import role_required
 from .models import StaffProfile
@@ -232,3 +233,55 @@ def about(request):
 @login_required
 def privacy_policy(request):
     return render(request, "adminpanel/privacy_policy.html")
+
+@login_required
+def reports(request):
+    deposits = Transaction.objects.filter(type=Transaction.DEPOSIT)
+
+    monthly_raw = (
+        deposits.annotate(period=TruncMonth("created_at"))
+        .values("period", "condition")
+        .annotate(count=Count("id"))
+        .order_by("period")
+    )
+    yearly_raw = (
+        deposits.annotate(period=TruncYear("created_at"))
+        .values("period", "condition")
+        .annotate(count=Count("id"))
+        .order_by("period")
+    )
+
+    def pivot(raw, fmt):
+        buckets = {}
+        for row in raw:
+            key = row["period"].strftime(fmt)
+            buckets.setdefault(key, {"clean": 0, "dirty": 0})
+            if row["condition"] in ("clean", "dirty"):
+                buckets[key][row["condition"]] = row["count"]
+        return buckets
+
+    def with_bar_widths(buckets):
+        # Precompute each bar's width as a % of the largest total, so the
+        # template can just plug in a number -- Django templates can't do
+        # this kind of math themselves.
+        rows = []
+        max_total = max([v["clean"] + v["dirty"] for v in buckets.values()], default=1) or 1
+        for label, vals in buckets.items():
+            total = vals["clean"] + vals["dirty"]
+            rows.append({
+                "label": label,
+                "clean": vals["clean"],
+                "dirty": vals["dirty"],
+                "total": total,
+                "clean_pct": round((vals["clean"] / max_total) * 100, 1),
+                "dirty_pct": round((vals["dirty"] / max_total) * 100, 1),
+            })
+        return rows
+
+    monthly = with_bar_widths(pivot(monthly_raw, "%b %Y"))
+    yearly = with_bar_widths(pivot(yearly_raw, "%Y"))
+
+    return render(request, "adminpanel/reports.html", {
+        "monthly": monthly,
+        "yearly": yearly,
+    })

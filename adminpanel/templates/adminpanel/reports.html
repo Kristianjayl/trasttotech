@@ -1,0 +1,54 @@
+{% extends "adminpanel/base.html" %}
+{% block title %}Reports{% endblock %}
+{% block page_title %}Reports{% endblock %}
+{% block page_sub %}Clean vs. dirty bottles collected, over time{% endblock %}
+
+{% block content %}
+<div class="card" style="margin-bottom:16px;">
+  <h3>Monthly — Clean vs. Dirty</h3>
+  <div class="hint" style="margin-bottom:16px;">Bottles collected per month</div>
+  {% if monthly %}
+    {% for row in monthly %}
+    <div style="margin-bottom:14px;">
+      <div style="display:flex; justify-content:space-between; font-size:12.5px; margin-bottom:4px;">
+        <span>{{ row.label }}</span>
+        <span style="color:var(--text-faint);">{{ row.total }} total</span>
+      </div>
+      <div style="display:flex; gap:2px; height:14px; border-radius:4px; overflow:hidden; background:var(--panel-3);">
+        <div style="width:{{ row.clean_pct }}%; background:var(--green);" title="Clean: {{ row.clean }}"></div>
+        <div style="width:{{ row.dirty_pct }}%; background:var(--red);" title="Dirty: {{ row.dirty }}"></div>
+      </div>
+      <div style="font-size:11px; color:var(--text-faint); margin-top:3px;">
+        <span class="pill green">{{ row.clean }} clean</span> <span class="pill red">{{ row.dirty }} dirty</span>
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="hint">No deposit data yet.</div>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h3>Yearly — Clean vs. Dirty</h3>
+  <div class="hint" style="margin-bottom:16px;">Bottles collected per year</div>
+  {% if yearly %}
+    {% for row in yearly %}
+    <div style="margin-bottom:14px;">
+      <div style="display:flex; justify-content:space-between; font-size:12.5px; margin-bottom:4px;">
+        <span>{{ row.label }}</span>
+        <span style="color:var(--text-faint);">{{ row.total }} total</span>
+      </div>
+      <div style="display:flex; gap:2px; height:14px; border-radius:4px; overflow:hidden; background:var(--panel-3);">
+        <div style="width:{{ row.clean_pct }}%; background:var(--green);" title="Clean: {{ row.clean }}"></div>
+        <div style="width:{{ row.dirty_pct }}%; background:var(--red);" title="Dirty: {{ row.dirty }}"></div>
+      </div>
+      <div style="font-size:11px; color:var(--text-faint); margin-top:3px;">
+        <span class="pill green">{{ row.clean }} clean</span> <span class="pill red">{{ row.dirty }} dirty</span>
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="hint">No deposit data yet.</div>
+  {% endif %}
+</div>
+{% endblock %}

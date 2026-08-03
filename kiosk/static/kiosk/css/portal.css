@@ -281,3 +281,40 @@ table.rates td{
 .toast.error{   
                 background:var(--btn-red-dark); 
             }
+
+
+/* ===================== RESPONSIVE ===================== */
+
+/* Small/older phones (e.g. iPhone SE, small Android) */
+@media (max-width: 360px){
+  .plate .brand{ font-size:13px; }
+  .led-points{ font-size:42px; }
+  .led-timer{ font-size:24px; }
+  .vbtn{ padding:13px 15px; font-size:13.5px; }
+  .machine{ padding:14px 12px 22px 12px; }
+  .weigh-kg{ font-size:36px; }
+}
+
+/* Landscape orientation -- easy to trigger by accident if someone
+   rotates their phone mid-use. Without this, the screen-bezel content
+   and button panel can get pushed below the visible area, forcing
+   awkward scrolling on a screen that's supposed to feel like a kiosk. */
+@media (max-height: 500px) and (orientation: landscape){
+  .machine{ min-height:auto; padding-top:10px; padding-bottom:14px; }
+  .plate{ padding:2px 0 6px 0; }
+  .screen{ padding:10px 14px 8px 14px; }
+  .led-points{ font-size:36px; }
+  .led-timer{ font-size:22px; }
+  .panel{ gap:6px; margin-top:10px; }
+  .vbtn{ padding:10px 16px; }
+  .footnote{ margin-top:8px; }
+  .tray{ max-height:80vh; }
+}
+
+/* Tablets / opened on a laptop browser without mobile emulation --
+   the centered card already looks intentional on wide screens, this
+   just gives it a little more breathing room instead of looking
+   awkwardly narrow on a big display. */
+@media (min-width: 700px){
+  .machine{ max-width:440px; box-shadow:0 0 80px rgba(0,0,0,.5); }
+}
