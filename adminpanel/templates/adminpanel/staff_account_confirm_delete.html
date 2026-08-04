@@ -1,0 +1,16 @@
+{% extends "adminpanel/base.html" %}
+{% block title %}Delete Staff Account{% endblock %}
+{% block page_title %}Delete Staff Account{% endblock %}
+{% block page_sub %}This cannot be undone{% endblock %}
+
+{% block content %}
+<div class="card">
+  {% if error %}<div class="weigh-hint" style="background:#FBE9E6; color:#9A2E1C; margin-bottom:14px;">{{ error }}</div>{% endif %}
+  <p>Are you sure you want to delete the account <b>{{ profile.user.username }}</b> ({{ profile.get_role_display }})?</p>
+  <form method="post">
+    {% csrf_token %}
+    <button type="submit" class="btn" style="background:var(--red); border-color:var(--red);">Yes, Delete</button>
+    <a href="{% url 'staff_accounts_list' %}" class="btn ghost">Cancel</a>
+  </form>
+</div>
+{% endblock %}

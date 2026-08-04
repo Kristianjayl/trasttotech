@@ -1,0 +1,41 @@
+{% extends "adminpanel/base.html" %}
+{% block title %}{% if mode == "create" %}Add Staff Account{% else %}Edit Staff Account{% endif %}{% endblock %}
+{% block page_title %}{% if mode == "create" %}Add Staff Account{% else %}Edit Staff Account{% endif %}{% endblock %}
+{% block page_sub %}{% endblock %}
+
+{% block content %}
+<div class="card" style="max-height:100%">
+  {% if error %}<div class="weigh-hint" style="background:#FBE9E6; color:#9A2E1C; margin-bottom:14px;">{{ error }}</div>{% endif %}
+  <form method="post">
+    {% csrf_token %}
+    {% if mode == "create" %}
+    <div class="field-wrap">
+      <label class="field">Username</label>
+      <input type="text" name="username" required>
+    </div>
+    <div class="field-wrap">
+      <label class="field">Password</label>
+      <input type="password" name="password" required>
+    </div>
+    {% else %}
+    <div class="field-wrap">
+      <label class="field">Username</label>
+      <input type="text" value="{{ profile.user.username }}" disabled>
+    </div>
+    <div class="field-wrap">
+      <label class="field">New password (leave blank to keep current)</label>
+      <input type="password" name="password">
+    </div>
+    {% endif %}
+    <div class="field-wrap">
+      <label class="field">Role</label>
+      <select name="role">
+        <option value="admin" {% if profile.role == "admin" %}selected{% endif %}>Admin</option>
+        <option value="sk" {% if profile.role == "sk" or not profile %}selected{% endif %}>SK (Staff)</option>
+      </select>
+    </div>
+    <button type="submit" class="btn primary">{% if mode == "create" %}Create{% else %}Save Changes{% endif %}</button>
+    <a href="{% url 'staff_accounts_list' %}" class="btn ghost">Cancel</a>
+  </form>
+</div>
+{% endblock %}

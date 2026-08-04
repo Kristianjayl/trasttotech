@@ -4,7 +4,7 @@
 {% block page_sub %}{{ today }}{% endblock %}
 
 {% block content %}
-<h2 style="font-family:'Space Grotesk', sans-serif; font-weight:600; margin-bottom:16px; color:var(--text);">Welcome, {{ user.username }}!</h2>
+<h1>Welcome, {{ user.username }}!</h1>
 
 <div class="grid" style="grid-template-columns:repeat(5,1fr); margin-bottom:16px;">
   <div class="card kpi">
@@ -32,17 +32,34 @@
 <div class="card">
   <h3>Recent Transactions</h3>
   <div class="hint" style="margin-bottom:14px;">Latest activity across the system</div>
-  <table>
-    <tr><th>Time</th><th>User</th><th>Type</th><th>Pieces</th><th>Points</th></tr>
-    {% for t in recent_transactions %}
-    <tr class="rowhover">
-      <td>{{ t.created_at }}</td>
-      <td>{{ t.user.mac_display }}</td>
-      <td><span class="pill gray">{{ t.get_type_display }}</span></td>
-      <td>{{ t.pieces|default:"-" }}</td>
-      <td>{{ t.points_delta }}</td>
-    </tr>
-    {% endfor %}
-  </table>
+
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>User</th>
+          <th>Type</th>
+          <th>Pieces</th>
+          <th>Points</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in recent_transactions %}
+          <tr class="rowhover">
+            <td>{{ t.created_at }}</td>
+            <td>{{ t.user.mac_display }}</td>
+            <td><span class="pill gray">{{ t.get_type_display }}</span></td>
+            <td>{{ t.pieces|default:"-" }}</td>
+            <td>{{ t.points_delta }}</td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="5" class="table-empty">No transactions yet.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 {% endblock %}

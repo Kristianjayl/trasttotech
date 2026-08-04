@@ -1,0 +1,26 @@
+{% extends "adminpanel/base.html" %}
+{% block title %}Staff Accounts{% endblock %}
+{% block page_title %}Staff Accounts{% endblock %}
+{% block page_sub %}Admin and SK login accounts{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div style="margin-bottom:14px; text-align:right;">
+    <a href="{% url 'staff_account_create' %}" class="btn primary">+ Add Staff Account</a>
+  </div>
+  <table>
+    <tr><th>Username</th><th>Role</th><th>Date Joined</th><th></th></tr>
+    {% for p in profiles %}
+    <tr class="rowhover">
+      <td>{{ p.user.username }}</td>
+      <td><span class="pill {% if p.role == 'admin' %}green{% else %}gray{% endif %}">{{ p.get_role_display }}</span></td>
+      <td>{{ p.user.date_joined }}</td>
+      <td>
+        <a href="{% url 'staff_account_edit' p.id %}" class="btn ghost" style="padding:5px 10px; font-size:11.5px;">Edit</a>
+        <a href="{% url 'staff_account_delete' p.id %}" class="btn ghost" style="padding:5px 10px; font-size:11.5px; color:var(--red);">Delete</a>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

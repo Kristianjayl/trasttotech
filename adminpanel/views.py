@@ -241,23 +241,26 @@ def reports(request):
     monthly_raw = (
         deposits.annotate(period=TruncMonth("created_at"))
         .values("period", "condition")
-        .annotate(count=Count("id"))
+        .annotate(count=Sum("pieces"))
         .order_by("period")
     )
     yearly_raw = (
         deposits.annotate(period=TruncYear("created_at"))
         .values("period", "condition")
-        .annotate(count=Count("id"))
+        .annotate(count=Sum("pieces"))
         .order_by("period")
     )
 
     def pivot(raw, fmt):
         buckets = {}
+
         for row in raw:
             key = row["period"].strftime(fmt)
             buckets.setdefault(key, {"clean": 0, "dirty": 0})
+
             if row["condition"] in ("clean", "dirty"):
-                buckets[key][row["condition"]] = row["count"]
+                buckets[key][row["condition"]] = row["count"] or 0
+
         return buckets
 
     def with_bar_widths(buckets):

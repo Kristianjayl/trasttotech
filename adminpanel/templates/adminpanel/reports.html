@@ -4,51 +4,140 @@
 {% block page_sub %}Clean vs. dirty bottles collected, over time{% endblock %}
 
 {% block content %}
-<div class="card" style="margin-bottom:16px;">
-  <h3>Monthly — Clean vs. Dirty</h3>
-  <div class="hint" style="margin-bottom:16px;">Bottles collected per month</div>
-  {% if monthly %}
-    {% for row in monthly %}
-    <div style="margin-bottom:14px;">
-      <div style="display:flex; justify-content:space-between; font-size:12.5px; margin-bottom:4px;">
-        <span>{{ row.label }}</span>
-        <span style="color:var(--text-faint);">{{ row.total }} total</span>
+<div class="reports-grid">
+  <section class="card reports-monthly-card">
+    <div class="reports-card-head">
+      <div>
+        <h3>Monthly comparison</h3>
+        <div class="hint">Clean and dirty bottles collected per month</div>
       </div>
-      <div style="display:flex; gap:2px; height:14px; border-radius:4px; overflow:hidden; background:var(--panel-3);">
-        <div style="width:{{ row.clean_pct }}%; background:var(--green);" title="Clean: {{ row.clean }}"></div>
-        <div style="width:{{ row.dirty_pct }}%; background:var(--red);" title="Dirty: {{ row.dirty }}"></div>
-      </div>
-      <div style="font-size:11px; color:var(--text-faint); margin-top:3px;">
-        <span class="pill green">{{ row.clean }} clean</span> <span class="pill red">{{ row.dirty }} dirty</span>
+      <div class="reports-legend" aria-label="Chart legend">
+        <span><i class="reports-legend-dot clean"></i>Clean</span>
+        <span><i class="reports-legend-dot dirty"></i>Dirty</span>
       </div>
     </div>
-    {% endfor %}
-  {% else %}
-    <div class="hint">No deposit data yet.</div>
-  {% endif %}
+
+    {% if monthly %}
+      <div class="reports-month-list">
+        {% for row in monthly %}
+          <div class="reports-row monthly-report-row"
+               data-clean="{{ row.clean }}"
+               data-dirty="{{ row.dirty }}">
+            <div class="reports-row-head">
+              <strong>{{ row.label }}</strong>
+              <span>{{ row.clean }} clean · {{ row.dirty }} dirty</span>
+            </div>
+            <div class="reports-bar"
+                 role="img"
+                 aria-label="{{ row.label }}: {{ row.clean }} clean and {{ row.dirty }} dirty bottles">
+              <span class="reports-bar-clean" style="width:{{ row.clean_pct }}%"></span>
+              <span class="reports-bar-dirty" style="width:{{ row.dirty_pct }}%"></span>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="reports-empty">No deposit data yet.</div>
+    {% endif %}
+  </section>
+
+  <section class="card reports-pie-card">
+    <div class="reports-card-head">
+      <div>
+        <h3>Clean vs. dirty</h3>
+        <div class="hint">All recorded bottles</div>
+      </div>
+    </div>
+
+    {% if monthly %}
+      <div class="reports-pie-wrap">
+        <div id="reports-pie"
+             class="reports-pie"
+             role="img"
+             aria-label="Clean and dirty bottle totals">
+          <div class="reports-pie-center">
+            <strong id="reports-pie-total">0</strong>
+            <span>total</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="reports-pie-totals">
+        <div>
+          <span><i class="reports-legend-dot clean"></i>Clean</span>
+          <strong id="reports-clean-total">0</strong>
+        </div>
+        <div>
+          <span><i class="reports-legend-dot dirty"></i>Dirty</span>
+          <strong id="reports-dirty-total">0</strong>
+        </div>
+      </div>
+    {% else %}
+      <div class="reports-empty">No deposit data yet.</div>
+    {% endif %}
+  </section>
 </div>
 
-<div class="card">
-  <h3>Yearly — Clean vs. Dirty</h3>
-  <div class="hint" style="margin-bottom:16px;">Bottles collected per year</div>
-  {% if yearly %}
-    {% for row in yearly %}
-    <div style="margin-bottom:14px;">
-      <div style="display:flex; justify-content:space-between; font-size:12.5px; margin-bottom:4px;">
-        <span>{{ row.label }}</span>
-        <span style="color:var(--text-faint);">{{ row.total }} total</span>
-      </div>
-      <div style="display:flex; gap:2px; height:14px; border-radius:4px; overflow:hidden; background:var(--panel-3);">
-        <div style="width:{{ row.clean_pct }}%; background:var(--green);" title="Clean: {{ row.clean }}"></div>
-        <div style="width:{{ row.dirty_pct }}%; background:var(--red);" title="Dirty: {{ row.dirty }}"></div>
-      </div>
-      <div style="font-size:11px; color:var(--text-faint); margin-top:3px;">
-        <span class="pill green">{{ row.clean }} clean</span> <span class="pill red">{{ row.dirty }} dirty</span>
-      </div>
+<section class="card reports-yearly-card">
+  <div class="reports-card-head">
+    <div>
+      <h3>Yearly comparison</h3>
+      <div class="hint">Clean and dirty bottle totals per year</div>
     </div>
-    {% endfor %}
+    <div class="reports-legend" aria-label="Chart legend">
+      <span><i class="reports-legend-dot clean"></i>Clean</span>
+      <span><i class="reports-legend-dot dirty"></i>Dirty</span>
+    </div>
+  </div>
+
+  {% if yearly %}
+    <div class="reports-year-list">
+      {% for row in yearly %}
+        <div class="reports-year-row">
+          <div class="reports-row-head">
+            <strong>{{ row.label }}</strong>
+            <span>{{ row.clean }} clean · {{ row.dirty }} dirty</span>
+          </div>
+          <div class="reports-bar"
+               role="img"
+               aria-label="{{ row.label }}: {{ row.clean }} clean and {{ row.dirty }} dirty bottles">
+            <span class="reports-bar-clean" style="width:{{ row.clean_pct }}%"></span>
+            <span class="reports-bar-dirty" style="width:{{ row.dirty_pct }}%"></span>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
   {% else %}
-    <div class="hint">No deposit data yet.</div>
+    <div class="reports-empty">No deposit data yet.</div>
   {% endif %}
-</div>
+</section>
+
+{% if monthly %}
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    var cleanTotal = 0;
+    var dirtyTotal = 0;
+    var rows = document.querySelectorAll('.monthly-report-row');
+
+    rows.forEach(function (row) {
+      cleanTotal += Number(row.dataset.clean) || 0;
+      dirtyTotal += Number(row.dataset.dirty) || 0;
+    });
+
+    var total = cleanTotal + dirtyTotal;
+    var cleanPercent = total ? (cleanTotal / total) * 100 : 0;
+    var pie = document.getElementById('reports-pie');
+
+    document.getElementById('reports-clean-total').textContent = cleanTotal;
+    document.getElementById('reports-dirty-total').textContent = dirtyTotal;
+    document.getElementById('reports-pie-total').textContent = total;
+
+    pie.style.setProperty('--clean-percent', cleanPercent + '%');
+    pie.setAttribute(
+      'aria-label',
+      cleanTotal + ' clean and ' + dirtyTotal + ' dirty bottles'
+    );
+  });
+</script>
+{% endif %}
 {% endblock %}
