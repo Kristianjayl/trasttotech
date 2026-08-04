@@ -69,7 +69,7 @@ html,body{
   flex-shrink:0; animation:blink 2.4s ease-in-out infinite;
 }
 @keyframes blink{ 0%,100%{opacity:1;} 50%{opacity:.55;} }
-.screen .meta{ font-size:10.5px; 
+.screen .meta{ font-size:10.5px;
                color:var(--led-green-dim); 
                line-height:1.6; 
                margin-bottom:10px; 
