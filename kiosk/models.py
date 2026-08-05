@@ -24,7 +24,7 @@ class KioskUser(models.Model):
 
 # this is a record of a rate for redeeming points for bottles
 class BottleRate(models.Model):
-    points_per_bottle = models.IntegerField(default=10)
+    points_per_bottle = models.IntegerField(default=3)
 
     def __str__(self):
         return f"{self.points_per_bottle} pts per bottle"

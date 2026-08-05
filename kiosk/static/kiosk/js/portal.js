@@ -149,7 +149,7 @@
             <button id="btnGenVoucher" style="flex:1; border:none; border-radius:7px; padding:10px; background:var(--btn-purple); color:#fff; font-weight:700; cursor:pointer;" ${canVoucher ? '' : 'disabled'}>Generate Voucher</button>
           </div>
 
-          ${canVoucher ? '' : `<div style="font-size:11.5px; color:var(--muted); margin-bottom:6px;">Needs ${VOUCHER_MIN_POINTS} pts (5 bottles) minimum for a voucher.</div>`}
+          ${canVoucher ? '' : `<div style="font-size:11.5px; color:var(--muted); margin-bottom:6px;">Needs ${VOUCHER_MIN_POINTS} points minimum for a voucher.</div>`}
           <button class="cancel-link" data-close="trayInsert">Done</button>`;
 
         showToast('+' + d.points_awarded + ' points awarded', 'success');

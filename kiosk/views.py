@@ -35,14 +35,13 @@ def _set_uid_cookie(response, uid):
 #--------------------------------------------------------------- utils ---
 def _seed_rates_if_empty():
     if not BottleRate.objects.exists():
-        BottleRate.objects.create(points_per_bottle=10)
+        BottleRate.objects.create(points_per_bottle=3)
     if not WifiRate.objects.exists():
         WifiRate.objects.bulk_create([
-            WifiRate(points=10, minutes=15, label="15 Minutes"),
-            WifiRate(points=25, minutes=30, label="30 Minutes"),
+            WifiRate(points=5, minutes=10, label="10 Minutes"),
+            WifiRate(points=10, minutes=20, label="20 Minutes"),
+            WifiRate(points=30, minutes=45, label="45 Minutes"),
             WifiRate(points=50, minutes=60, label="1 Hour"),
-            WifiRate(points=100, minutes=120, label="2 Hours"),
-            WifiRate(points=200, minutes=360, label="6 Hours (Maximum Daily)"),
         ])
 
 
@@ -72,7 +71,16 @@ def portal(request):
     user, uid, created_cookie = get_or_create_user(request)
     bottle_rate = BottleRate.objects.first()
     wifi_rates = list(WifiRate.objects.values("points", "minutes", "label"))
-    piece_rates = [{"pieces": w["points"] // bottle_rate.points_per_bottle, "points": w["points"], "label": w["label"]} for w in wifi_rates]
+    piece_rates = [
+        {
+            "pieces": (
+                w["points"] + bottle_rate.points_per_bottle - 1
+            ) // bottle_rate.points_per_bottle,
+            "points": w["points"],
+            "label": w["label"],
+        }
+    for w in wifi_rates
+    ]
     response = render(request, "kiosk/portal.html", {
         "state": _user_state(user),
         "piece_rates": piece_rates,
@@ -150,7 +158,7 @@ def api_insert_confirm(request):
         return JsonResponse({"pieces": 0, "points_awarded": 0, "new_balance": user.points_balance, "condition": None})
 
     # SIMULATED -- swap for real camera classifier result later
-    is_clean = random.random() < 0.5  # ~50% clean, ~20% dirty, just for demo data
+    is_clean = random.random() < 0.5  # ~50% clean, ~50% dirty, just for demo data
     condition = Transaction.CLEAN if is_clean else Transaction.DIRTY
 
     rate = BottleRate.objects.first()

@@ -2,69 +2,99 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>TrashToTech — Home Vendo</title>
-<link rel="stylesheet" href="{% static 'kiosk/css/portal.css' %}">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TrashToTech &mdash; Home Vendo</title>
+  <link rel="stylesheet" href="{% static 'kiosk/css/portal.css' %}">
 </head>
 <body>
 
 <div class="machine">
-
-  <div class="plate">
+  <header class="plate">
     <div class="brand">Trash<span>To</span>Tech</div>
     <div class="model">HOME VENDO &mdash; UNIT 01</div>
-  </div>
+  </header>
 
-  <div class="screen-bezel">
-    <div class="screen">
-      <div class="status-row">
-        <span class="status-dot"></span>
-        <span id="connLabel">CONNECTED</span>
-        <span class="paused-tag" id="pausedTag">PAUSED</span>
-      </div>
-      <div class="meta">
-        IP&nbsp; <b id="metaIp">{{ state.ip }}</b><br>
-        MAC&nbsp; <b id="metaMac">{{ state.mac }}</b>
-      </div>
+  <div class="machine-body">
+    <section class="status-column" aria-label="Account status">
+      <div class="screen-bezel">
+        <div class="screen">
+          <div class="status-row">
+            <span class="status-dot"></span>
+            <span id="connLabel">CONNECTED</span>
+            <span class="paused-tag" id="pausedTag">PAUSED</span>
+          </div>
 
-      <div class="led-label">Account Points</div>
-      <div class="led-points"><span id="pointsValue">{{ state.points }}</span> <sub>PTS</sub></div>
+          <div class="meta">
+            IP&nbsp; <b id="metaIp">{{ state.ip }}</b><br>
+            MAC&nbsp; <b id="metaMac">{{ state.mac }}</b>
+          </div>
 
-      <div class="timer-row">
-        <div>
-          <div class="led-label">Remaining Time</div>
-          <div class="led-timer" id="timerValue">00:00:00</div>
+          <div class="screen-metrics">
+            <div class="screen-metric">
+              <div class="led-label">Account Points</div>
+              <div class="led-points">
+                <span id="pointsValue">{{ state.points }}</span> <sub>PTS</sub>
+              </div>
+            </div>
+
+            <div class="screen-metric timer-row">
+              <div class="led-label">Remaining Time</div>
+              <div class="led-timer" id="timerValue">00:00:00</div>
+            </div>
+          </div>
         </div>
       </div>
+
+      <div class="status-help">
+        <strong>How it works</strong>
+        <span>Insert a clean plastic bottle, earn points, then redeem WiFi time.</span>
+      </div>
+    </section>
+
+    <section class="controls-column" aria-label="Vendo controls">
+      <div class="panel">
+        <button type="button" class="vbtn green" id="btnInsert">
+          Insert Bottle <span class="arrow">&#8250;</span>
+        </button>
+        <button type="button" class="vbtn purple" id="btnRedeem">
+          Redeem Points <span class="arrow">&#8250;</span>
+        </button>
+        <button type="button" class="vbtn red" id="btnPause">
+          Pause Time <span class="arrow">&#8250;</span>
+        </button>
+        <button type="button" class="vbtn blue" id="btnRates">
+          WiFi Rates <span class="arrow">&#8250;</span>
+        </button>
+      </div>
+
+      <div class="voucher-block">
+        <div class="voucher-heading">
+          <strong>Use a voucher</strong>
+          <span>Enter a generated voucher code below.</span>
+        </div>
+        <div class="slot">
+          <input type="text" id="voucherInput" placeholder="Enter voucher here" maxlength="20">
+          <button type="button" id="voucherSubmit">SUBMIT</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <footer class="portal-footer">
+    <div class="footnote">Insert a plastic bottle to earn points &middot; Points convert to WiFi time</div>
+    <div class="footnote footer-links">
+      <a href="#" id="btnAbout">About</a>
+      <span>&middot;</span>
+      <a href="#" id="btnPrivacy">Privacy Policy</a>
     </div>
-  </div>
-
-  <div class="panel">
-    <button class="vbtn green" id="btnInsert">Insert Bottle <span class="arrow">&#8250;</span></button>
-    <button class="vbtn purple" id="btnRedeem">Redeem Points <span class="arrow">&#8250;</span></button>
-    <button class="vbtn red" id="btnPause">Pause Time <span class="arrow">&#8250;</span></button>
-    <button class="vbtn blue" id="btnRates">WiFi Rates <span class="arrow">&#8250;</span></button>
-  </div>
-
-  <div class="slot">
-    <input type="text" id="voucherInput" placeholder="Enter voucher here" maxlength="20">
-    <button id="voucherSubmit">SUBMIT</button>
-  </div>
-  
-  <!--Footer-->
-  <div class="footnote">Insert a plastic bottle to earn points &middot; Points convert to WiFi time</div>
-  <div class="footnote" style="margin-top:6px;">
-    <a href="#" id="btnAbout" style="color:inherit;">About</a>
-    &nbsp;·&nbsp;
-    <a href="#" id="btnPrivacy" style="color:inherit;">Privacy Policy</a>
-  </div>
+  </footer>
 </div>
 
-<!-- ============ TRAY: INSERT BOTTLE ============ -->
+<!-- INSERT BOTTLE -->
 <div class="tray-backdrop" id="trayInsert">
   <div class="tray">
-    <button class="close-x" data-close="trayInsert">&times;</button>
+    <button type="button" class="close-x" data-close="trayInsert" aria-label="Close">&times;</button>
     <div class="tray-handle"></div>
     <h2>Insert Bottle</h2>
     <div class="sub">Home Vendo &mdash; drop your bottle in the slot now</div>
@@ -76,83 +106,89 @@
     </div>
 
     <div class="weigh-hint">
-      Please insert a minimum of 1 bottle for WiFi.<br>
-      At least 5 bottles' worth of points is needed to generate a voucher instead.
+      Insert at least 2 bottles to earn enough points for WiFi.<br>
+      A minimum of 50 points is required to generate a voucher.  
     </div>
 
     <div id="weighActions">
-      <button class="cancel-link" id="btnCancelInsert">Cancel</button>
+      <button type="button" class="cancel-link" id="btnCancelInsert">Cancel</button>
     </div>
     <div id="weighResult" style="display:none;"></div>
   </div>
 </div>
 
-<!-- ============ TRAY: REDEEM POINTS ============ -->
+<!-- REDEEM POINTS -->
 <div class="tray-backdrop" id="trayRedeem">
   <div class="tray">
-    <button class="close-x" data-close="trayRedeem">&times;</button>
+    <button type="button" class="close-x" data-close="trayRedeem" aria-label="Close">&times;</button>
     <div class="tray-handle"></div>
     <h2>Redeem Points</h2>
     <div class="sub"><span id="redeemBalance">{{ state.points }}</span> Points available</div>
 
     <div id="redeemList">
       {% for r in wifi_rates %}
-      <div class="tier-row">
-        <div>
-          <div class="tier-label">{{ r.label }}</div>
-          <div class="tier-cost">{{ r.points }} Points</div>
+        <div class="tier-row">
+          <div>
+            <div class="tier-label">{{ r.label }}</div>
+            <div class="tier-cost">{{ r.points }} Points</div>
+          </div>
+          <button type="button" class="redeem-btn" data-points="{{ r.points }}">Redeem</button>
         </div>
-        <button class="redeem-btn" data-points="{{ r.points }}">Redeem</button>
-      </div>
       {% endfor %}
     </div>
 
-    <button class="cancel-link" data-close="trayRedeem">Cancel</button>
+    <button type="button" class="cancel-link" data-close="trayRedeem">Cancel</button>
   </div>
 </div>
 
-<!-- ============ TRAY: WIFI RATES (read-only) ============ -->
+<!-- WIFI RATES -->
 <div class="tray-backdrop" id="trayRates">
   <div class="tray">
-    <button class="close-x" data-close="trayRates">&times;</button>
+    <button type="button" class="close-x" data-close="trayRates" aria-label="Close">&times;</button>
     <div class="tray-handle"></div>
     <h2>WiFi Rates</h2>
-    <div class="sub">Bottles &rarr; points &rarr; WiFi time</div>
+    <div class="sub">
+      1 bottle = {{ points_per_bottle }} points
+    </div>
 
     <table class="rates">
-      <tr><th>Bottles</th><th>Points</th><th>WiFi time</th></tr>
-      {% for p in piece_rates %}
-      <tr>
-        <td>{{ p.pieces }} bottle{{ p.pieces|pluralize }}</td>
-        <td>{{ p.points }} pts</td>
-        <td>{{ p.label }}</td>
-      </tr>
-      {% endfor %}
+      <thead>
+        <tr><th>Minimum Bottles</th><th>Points</th><th>WiFi time</th></tr>
+      </thead>
+      <tbody>
+        {% for p in piece_rates %}
+          <tr>
+            <td>{{ p.pieces }} bottle{{ p.pieces|pluralize }}</td>
+            <td>{{ p.points }} pts</td>
+            <td>{{ p.label }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
     </table>
   </div>
 </div>
 
-<!-- ============ TRAY: ABOUT ============ -->
+<!-- ABOUT -->
 <div class="tray-backdrop" id="trayAbout">
   <div class="tray">
-    <button class="close-x" data-close="trayAbout">&times;</button>
+    <button type="button" class="close-x" data-close="trayAbout" aria-label="Close">&times;</button>
     <div class="tray-handle"></div>
     <h2>About TrashToTech</h2>
     <div class="sub">A capstone project for Barangay 39, Calvary Hill, Tacloban City</div>
-    <p style="font-size:13px; color:var(--muted); line-height:1.6;">
+    <p class="tray-copy">
       Insert a plastic bottle, earn points based on how many you deposit, and redeem those points for WiFi time or a voucher. Built to reduce plastic waste while giving residents free internet access.
     </p>
   </div>
 </div>
 
-<!-- ============ TRAY: PRIVACY POLICY ============ -->
+<!-- PRIVACY POLICY -->
 <div class="tray-backdrop" id="trayPrivacy">
   <div class="tray">
-    <button class="close-x" data-close="trayPrivacy">&times;</button>
+    <button type="button" class="close-x" data-close="trayPrivacy" aria-label="Close">&times;</button>
     <div class="tray-handle"></div>
     <h2>Privacy Policy</h2>
     <div class="sub">What this machine collects</div>
-    <p style="font-size:13px; color:var(--muted); line-height:1.6;">
+    <p class="tray-copy">
       This machine assigns your device an anonymous ID to track your points and WiFi sessions. No personal information is collected unless you voluntarily sign up. Data is used only to operate the rewards system for this project.
     </p>
   </div>
