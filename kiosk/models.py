@@ -1,5 +1,6 @@
 from django.db import models
 
+
 # this is a record of a kiosk user, identified by device_id (which is a cookie-based id formatted to look like a MAC address)
 class KioskUser(models.Model):
     """
@@ -90,3 +91,78 @@ class BinStatus(models.Model):
         status = "Full" if self.is_full else "Not full"
         return f"{self.device_id}: {status}"
 
+class BottleScan(models.Model):
+    WAITING = "waiting"
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
+    CANCELLED = "cancelled"
+    EXPIRED = "expired"
+
+    STATUS_CHOICES = [
+        (WAITING, "Waiting"),
+        (ACCEPTED, "Accepted"),
+        (REJECTED, "Rejected"),
+        (CANCELLED, "Cancelled"),
+        (EXPIRED, "Expired"),
+    ]
+
+    user = models.ForeignKey(
+        KioskUser,
+        on_delete=models.CASCADE,
+        related_name="bottle_scans",
+    )
+
+    status = models.CharField(
+        max_length=12,
+        choices=STATUS_CHOICES,
+        default=WAITING,
+        db_index=True,
+    )
+
+    # Stores Clean, Reject, Invalid, or No Bottle.
+    label = models.CharField(
+        max_length=64,
+        blank=True,
+    )
+
+    confidence_percent = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+
+    points_awarded = models.PositiveIntegerField(
+        default=0,
+    )
+
+    started_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    expires_at = models.DateTimeField()
+
+    completed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+
+    class Meta:
+        ordering = ["-started_at"]
+
+        indexes = [
+            models.Index(
+                fields=[
+                    "status",
+                    "expires_at",
+                ],
+                name="bscan_status_exp_idx",
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f"Scan {self.id}: "
+            f"{self.user.mac_display()} — "
+            f"{self.status}"
+        )

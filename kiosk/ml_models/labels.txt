@@ -1,3 +1,4 @@
 0 Reject
 1 Clean
 2 No Bottle
+3 Invalid

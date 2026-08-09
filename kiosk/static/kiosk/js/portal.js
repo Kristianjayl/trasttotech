@@ -98,33 +98,92 @@
   });
 
   let pollHandle;
+  let scanDurationSeconds = 90;
+
   function resetWeighUI(){
-    document.getElementById('weighCountdown').textContent = '4';
+    clearInterval(pollHandle);
+    document.getElementById('weighCountdown').textContent = '90';
     document.getElementById('weighBarFill').style.width = '0%';
-    document.getElementById('weighKg').textContent = '0.00';
+    document.getElementById('weighKg').textContent = 'Waiting...';
     document.getElementById('weighActions').style.display = '';
     document.getElementById('weighResult').style.display = 'none';
     document.getElementById('weighResult').innerHTML = '';
   }
 
-  document.getElementById('btnInsert').addEventListener('click', () => {
+  document.getElementById('btnInsert').addEventListener('click', async () => {
     resetWeighUI();
     openTray('trayInsert');
-    csrfFetch('/api/insert/start/', {method:'POST'}).then(() => {
-      pollHandle = setInterval(pollWeight, 700);
-    });
+
+    try {
+      const response = await csrfFetch(
+        '/api/insert/start/',
+        {method:'POST'}
+      );
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message || data.error || 'Unable to start scanner'
+        );
+      }
+
+      scanDurationSeconds = data.seconds_left || 90;
+      document.getElementById('weighCountdown').textContent =
+        scanDurationSeconds;
+      document.getElementById('weighKg').textContent =
+        'Insert one bottle';
+
+      pollHandle = setInterval(pollWeight, 1000);
+      pollWeight();
+    }
+    catch (error) {
+      showScanFailure(error.message);
+    }
   });
 
-  function pollWeight(){
-    fetch('/api/insert/poll/').then(r => r.json()).then(d => {
-      document.getElementById('weighCountdown').textContent = d.seconds_left;
-      document.getElementById('weighBarFill').style.width = ((4-d.seconds_left)/4*100) + '%';
-      document.getElementById('weighKg').textContent = d.done ? '1 pc' : '...';
-      if (d.done) {
-        clearInterval(pollHandle);
-        confirmDeposit();
+  async function pollWeight(){
+    try {
+      const response = await fetch(
+        '/api/insert/poll/',
+        {
+          method: 'GET',
+          credentials: 'same-origin',
+          cache: 'no-store',
+        }
+      );
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Unable to read scanner');
       }
-    });
+
+      document.getElementById('weighCountdown').textContent =
+        data.seconds_left;
+
+      const progress = Math.min(
+        100,
+        Math.max(
+          0,
+          ((scanDurationSeconds - data.seconds_left) /
+            scanDurationSeconds) * 100
+        )
+      );
+
+      document.getElementById('weighBarFill').style.width =
+        progress + '%';
+
+      document.getElementById('weighKg').textContent =
+        data.done ? 'Result ready' : 'Scanning camera...';
+
+      if (data.done) {
+        clearInterval(pollHandle);
+        showDepositResult(data);
+      }
+    }
+    catch (error) {
+      clearInterval(pollHandle);
+      showScanFailure(error.message);
+    }
   }
 
   // NOTE: must match MIN_POINTS_FOR_VOUCHER in views.py (api_voucher_generate).
@@ -132,39 +191,110 @@
   // change one, change the other too.
   const VOUCHER_MIN_POINTS = 50;
 
-  function confirmDeposit(){
-    csrfFetch('/api/insert/confirm/', {method:'POST'}).then(r => r.json()).then(d => {
-      setPoints(d.new_balance);
-      document.getElementById('weighActions').style.display = 'none';
-      const box = document.getElementById('weighResult');
-      box.style.display = 'block';
-      if (d.points_awarded > 0) {
-        const canVoucher = d.new_balance >= VOUCHER_MIN_POINTS;
-        box.innerHTML = `
-          <div class="weigh-hint" style="background:#E7F7EA; color:#1F6B33;">
-            +${d.points_awarded} points awarded for 1 bottle. Balance: ${d.new_balance} pts.
-          </div>
+  function showDepositResult(data){
+    if (typeof data.new_balance === 'number') {
+      setPoints(data.new_balance);
+    }
 
-          <div style="display:flex; gap:8px; margin-bottom:6px;">
-            <button id="btnGenVoucher" style="flex:1; border:none; border-radius:7px; padding:10px; background:var(--btn-purple); color:#fff; font-weight:700; cursor:pointer;" ${canVoucher ? '' : 'disabled'}>Generate Voucher</button>
-          </div>
+    document.getElementById('weighActions').style.display = 'none';
+    const box = document.getElementById('weighResult');
+    box.style.display = 'block';
 
-          ${canVoucher ? '' : `<div style="font-size:11.5px; color:var(--muted); margin-bottom:6px;">Needs ${VOUCHER_MIN_POINTS} points minimum for a voucher.</div>`}
-          <button class="cancel-link" data-close="trayInsert">Done</button>`;
+    const confidence = data.confidence_percent !== null
+      ? Number(data.confidence_percent).toFixed(2) + '%'
+      : '';
 
-        showToast('+' + d.points_awarded + ' points awarded', 'success');
-        const genBtn = document.getElementById('btnGenVoucher');
-        if (genBtn) genBtn.addEventListener('click', () => generateVoucher(box));
+    if (data.status === 'accepted') {
+      const canVoucher = data.new_balance >= VOUCHER_MIN_POINTS;
+      box.innerHTML = `
+        <div class="weigh-hint" style="background:#E7F7EA; color:#1F6B33;">
+          <strong>Bottle Accepted</strong><br>
+          ${data.label}${confidence ? ` — ${confidence}` : ''}<br>
+          +${data.points_awarded} points. Balance: ${data.new_balance} pts.
+        </div>
+
+        <div style="display:flex; gap:8px; margin-bottom:6px;">
+          <button id="btnGenVoucher" style="flex:1; border:none; border-radius:7px; padding:10px; background:var(--btn-purple); color:#fff; font-weight:700; cursor:pointer;" ${canVoucher ? '' : 'disabled'}>Generate Voucher</button>
+        </div>
+
+        ${canVoucher ? '' : `<div style="font-size:11.5px; color:var(--muted); margin-bottom:6px;">Needs ${VOUCHER_MIN_POINTS} points minimum for a voucher.</div>`}
+        <button class="cancel-link" data-close="trayInsert">Done</button>`;
+
+      showToast(
+        '+' + data.points_awarded + ' points awarded',
+        'success'
+      );
+
+      const genBtn = document.getElementById('btnGenVoucher');
+      if (genBtn) {
+        genBtn.addEventListener(
+          'click',
+          () => generateVoucher(box)
+        );
       }
-      else {
-        box.innerHTML = `
-          <div class="weigh-hint" style="background:#FBE9E6; color:#9A2E1C;">
-            No bottle detected. Please try again.
-          </div>
-          <button class="cancel-link" data-close="trayInsert">Close</button>`;
-      }
-      box.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', () => closeTray('trayInsert')));
+    }
+    else if (data.status === 'rejected' && data.is_invalid) {
+      box.innerHTML = `
+        <div class="weigh-hint" style="background:#FFF3CD; color:#854D0E;">
+          <strong>Invalid Object</strong><br>
+          ${data.label}${confidence ? ` — ${confidence}` : ''}<br>
+          Please insert a valid plastic bottle. No points awarded.
+        </div>
+        <button class="cancel-link" data-close="trayInsert">Close</button>`;
+
+      showToast('Invalid object', 'error');
+    }
+    else if (data.status === 'rejected') {
+      box.innerHTML = `
+        <div class="weigh-hint" style="background:#FBE9E6; color:#9A2E1C;">
+          <strong>Bottle Rejected</strong><br>
+          ${data.label}${confidence ? ` — ${confidence}` : ''}<br>
+          The bottle was not accepted. No points awarded.
+        </div>
+        <button class="cancel-link" data-close="trayInsert">Close</button>`;
+
+      showToast('Bottle rejected', 'error');
+    }
+    else {
+      box.innerHTML = `
+        <div class="weigh-hint" style="background:#FBE9E6; color:#9A2E1C;">
+          <strong>Scan Timed Out</strong><br>
+          No stable bottle result was received. Please try again.
+        </div>
+        <button class="cancel-link" data-close="trayInsert">Close</button>`;
+
+      showToast('Scan timed out', 'error');
+    }
+
+    box.querySelectorAll('[data-close]').forEach(el => {
+      el.addEventListener(
+        'click',
+        () => closeTray('trayInsert')
+      );
     });
+  }
+
+  function showScanFailure(message){
+    clearInterval(pollHandle);
+    document.getElementById('weighActions').style.display = 'none';
+
+    const box = document.getElementById('weighResult');
+    box.style.display = 'block';
+    box.innerHTML = `
+      <div class="weigh-hint" style="background:#FBE9E6; color:#9A2E1C;">
+        <strong>Scanner Unavailable</strong><br>
+        ${message}
+      </div>
+      <button class="cancel-link" data-close="trayInsert">Close</button>`;
+
+    box.querySelectorAll('[data-close]').forEach(el => {
+      el.addEventListener(
+        'click',
+        () => closeTray('trayInsert')
+      );
+    });
+
+    showToast('Unable to start scanner', 'error');
   }
 
   function generateVoucher(box){

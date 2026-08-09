@@ -43,6 +43,44 @@
 
   <div
     class="card kpi"
+    id="bottle-scan-card"
+  >
+    <div class="label">Bottle Scanner</div>
+
+    <div
+      class="value"
+      id="bottle-scan-value"
+      style="color:#6b7280;"
+    >
+      UNKNOWN
+    </div>
+
+    <div
+      class="hint"
+      id="bottle-scan-message"
+    >
+      Waiting for scanner information
+    </div>
+
+    <div
+      class="hint"
+      id="bottle-scan-details"
+      style="margin-top:6px;"
+    >
+      No scan recorded yet
+    </div>
+
+    <div
+      class="hint"
+      id="bottle-scan-updated"
+      style="margin-top:6px;"
+    >
+      Live update starting...
+    </div>
+  </div>
+
+  <div
+    class="card kpi"
     id="bin-status-card"
     {% if bin_status and bin_status.is_full %}
       style="
@@ -176,6 +214,9 @@
     const statusUrl =
       "{% url 'staff_bin_status_live' %}";
 
+    const bottleScanUrl =
+      "{% url 'staff_bottle_scan_live' %}";
+
     const card =
       document.getElementById("bin-status-card");
 
@@ -190,6 +231,59 @@
 
     const updated =
       document.getElementById("bin-status-updated");
+
+    const scanCard =
+      document.getElementById("bottle-scan-card");
+
+    const scanValue =
+      document.getElementById("bottle-scan-value");
+
+    const scanMessage =
+      document.getElementById("bottle-scan-message");
+
+    const scanDetails =
+      document.getElementById("bottle-scan-details");
+
+    const scanUpdated =
+      document.getElementById("bottle-scan-updated");
+
+    const scanStyles = {
+      scanning: {
+        color: "#2563eb",
+        border: "#2563eb",
+        background: "rgba(37,99,235,0.06)",
+      },
+      accepted: {
+        color: "#16a34a",
+        border: "#16a34a",
+        background: "rgba(22,163,74,0.06)",
+      },
+      rejected: {
+        color: "#dc2626",
+        border: "#dc2626",
+        background: "rgba(220,38,38,0.06)",
+      },
+      invalid: {
+        color: "#d97706",
+        border: "#d97706",
+        background: "rgba(217,119,6,0.08)",
+      },
+      cancelled: {
+        color: "#6b7280",
+        border: "#9ca3af",
+        background: "rgba(107,114,128,0.05)",
+      },
+      expired: {
+        color: "#6b7280",
+        border: "#9ca3af",
+        background: "rgba(107,114,128,0.05)",
+      },
+      unknown: {
+        color: "#6b7280",
+        border: "",
+        background: "",
+      },
+    };
 
     function showUnknown() {
       value.textContent = "UNKNOWN";
@@ -278,11 +372,106 @@
       }
     }
 
+    function showBottleScan(data) {
+      const status = data.available
+        ? data.display_status
+        : "unknown";
+
+      const style =
+        scanStyles[status] || scanStyles.unknown;
+
+      scanValue.textContent = status.toUpperCase();
+      scanValue.style.color = style.color;
+      scanCard.style.border = style.border
+        ? `2px solid ${style.border}`
+        : "";
+      scanCard.style.background = style.background;
+
+      if (!data.available) {
+        scanMessage.textContent =
+          "Waiting for scanner information";
+        scanDetails.textContent =
+          "No scan recorded yet";
+        scanUpdated.textContent =
+          "No scanner activity yet";
+        return;
+      }
+
+      scanMessage.textContent = data.message;
+
+      const details = [
+        `Scan #${data.scan_id}`,
+        `User ${data.user}`,
+      ];
+
+      if (data.label) {
+        details.push(`Label: ${data.label}`);
+      }
+
+      if (data.confidence_percent !== null) {
+        details.push(
+          `Confidence: ${data.confidence_percent.toFixed(2)}%`
+        );
+      }
+
+      if (status === "accepted") {
+        details.push(
+          `Points: +${data.points_awarded}`
+        );
+      }
+
+      if (status === "scanning") {
+        details.push(
+          `${data.seconds_left}s remaining`
+        );
+      }
+
+      scanDetails.textContent = details.join(" | ");
+
+      const updateTime = new Date(data.updated_at);
+      scanUpdated.textContent =
+        "Updated " + updateTime.toLocaleString();
+    }
+
+    async function refreshBottleScan() {
+      try {
+        const response = await fetch(
+          bottleScanUrl,
+          {
+            method: "GET",
+            credentials: "same-origin",
+            cache: "no-store",
+            headers: {
+              "X-Requested-With": "XMLHttpRequest",
+            },
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(
+            "Bottle scanner request failed"
+          );
+        }
+
+        const data = await response.json();
+        showBottleScan(data);
+      } catch (error) {
+        scanUpdated.textContent =
+          "Live scanner update temporarily unavailable";
+      }
+    }
+
     refreshBinStatus();
+    refreshBottleScan();
 
     setInterval(
       refreshBinStatus,
       2000
+    );
+
+    setInterval(
+      refreshBottleScan,
+      1000
     );
   })();
 </script>

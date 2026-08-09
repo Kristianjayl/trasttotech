@@ -51,4 +51,9 @@ urlpatterns = [
     views.bin_status_live,
     name="staff_bin_status_live",
     ),
+    path(
+        "api/bottle-scan/",
+        views.bottle_scan_live,
+        name="staff_bottle_scan_live",
+    ),
 ]

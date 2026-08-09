@@ -2,7 +2,9 @@ import time
 
 from django.conf import settings
 from django.core.management.base import BaseCommand
+from django.db import DatabaseError
 
+from kiosk.bottle_scans import complete_waiting_scan
 from kiosk.camera_client import (
     CameraUnavailableError,
     classify_camera_frame,
@@ -11,7 +13,8 @@ from kiosk.camera_client import (
 
 def normalize_label(label):
     return (
-        label.strip()
+        str(label)
+        .strip()
         .lower()
         .replace("_", " ")
         .replace("-", " ")
@@ -25,21 +28,12 @@ class Command(BaseCommand):
     )
 
     def handle(self, *args, **options):
-        interval = (
-            settings.CAMERA_MONITOR_INTERVAL_SECONDS
-        )
-        minimum_percent = (
-            settings.CAMERA_MONITOR_MINIMUM_PERCENT
-        )
-        stable_frames_required = (
-            settings.CAMERA_MONITOR_STABLE_FRAMES
-        )
+        interval = settings.CAMERA_MONITOR_INTERVAL_SECONDS
+        minimum_percent = settings.CAMERA_MONITOR_MINIMUM_PERCENT
+        stable_frames_required = settings.CAMERA_MONITOR_STABLE_FRAMES
 
         candidate_label = None
         candidate_count = 0
-
-        # Locked means a bottle was already detected.
-        # The system must see No Bottle before counting again.
         bottle_locked = False
 
         self.stdout.write(
@@ -47,10 +41,7 @@ class Command(BaseCommand):
                 "TrashToTech camera monitor started."
             )
         )
-
-        self.stdout.write(
-            "Press Ctrl+C to stop."
-        )
+        self.stdout.write("Press Ctrl+C to stop.")
 
         try:
             while True:
@@ -80,12 +71,9 @@ class Command(BaseCommand):
                 if confidence < minimum_percent:
                     candidate_label = None
                     candidate_count = 0
-
                     self.stdout.write(
-                        f"Uncertain: {label} "
-                        f"({confidence:.2f}%)"
+                        f"Uncertain: {label} ({confidence:.2f}%)"
                     )
-
                     time.sleep(interval)
                     continue
 
@@ -96,52 +84,84 @@ class Command(BaseCommand):
                     candidate_count = 1
 
                 self.stdout.write(
-                    f"Watching: {label} "
-                    f"({confidence:.2f}%) "
-                    f"[{candidate_count}/"
-                    f"{stable_frames_required}]"
+                    f"Watching: {label} ({confidence:.2f}%) "
+                    f"[{candidate_count}/{stable_frames_required}]"
                 )
 
-                if (
-                    candidate_count
-                    >= stable_frames_required
-                ):
+                if candidate_count >= stable_frames_required:
                     if label_key == "no bottle":
                         if bottle_locked:
                             self.stdout.write(
                                 self.style.SUCCESS(
-                                    "Bottle removed. "
-                                    "Ready for the next bottle."
+                                    "Object removed. Ready for the next scan."
                                 )
                             )
-
                         bottle_locked = False
 
                     elif (
-                        label_key in {"clean", "reject"}
+                        label_key in {"clean", "reject", "invalid"}
                         and not bottle_locked
                     ):
                         if label_key == "clean":
-                            self.stdout.write(
-                                self.style.SUCCESS(
-                                    "EVENT: CLEAN BOTTLE "
-                                    f"({confidence:.2f}%)"
-                                )
-                            )
+                            event_message = "EVENT: CLEAN BOTTLE"
+                            event_style = self.style.SUCCESS
+                        elif label_key == "reject":
+                            event_message = "EVENT: REJECTED BOTTLE"
+                            event_style = self.style.WARNING
                         else:
-                            self.stdout.write(
-                                self.style.WARNING(
-                                    "EVENT: REJECTED BOTTLE "
-                                    f"({confidence:.2f}%)"
-                                )
-                            )
-
-                        bottle_locked = True
+                            event_message = "EVENT: INVALID OBJECT"
+                            event_style = self.style.WARNING
 
                         self.stdout.write(
-                            "Waiting for the bottle "
-                            "to be removed..."
+                            event_style(
+                                f"{event_message} ({confidence:.2f}%)"
+                            )
                         )
+
+                        try:
+                            saved_result = complete_waiting_scan(
+                                label,
+                                confidence,
+                            )
+                        except (DatabaseError, RuntimeError) as error:
+                            self.stderr.write(
+                                self.style.ERROR(
+                                    "Could not save scan result: "
+                                    f"{error}"
+                                )
+                            )
+                            candidate_count = 0
+                            time.sleep(interval)
+                            continue
+
+                        if saved_result is None:
+                            self.stdout.write(
+                                self.style.WARNING(
+                                    "No active portal scan. "
+                                    "Waiting for the portal to start one."
+                                )
+                            )
+                            # Do not lock the camera when nothing was saved.
+                            # This lets a portal scan that starts while the
+                            # object is still visible claim that object.
+                            bottle_locked = False
+                        else:
+                            self.stdout.write(
+                                self.style.SUCCESS(
+                                    "SAVED: "
+                                    f"{saved_result['label']} | "
+                                    f"{saved_result['status']} | "
+                                    f"+{saved_result['points_awarded']} "
+                                    "points | Balance: "
+                                    f"{saved_result['new_balance']}"
+                                )
+                            )
+                            # Lock only after a database scan was completed,
+                            # preventing one bottle from earning points twice.
+                            bottle_locked = True
+                            self.stdout.write(
+                                "Waiting for the object to be removed..."
+                            )
 
                     candidate_count = 0
 

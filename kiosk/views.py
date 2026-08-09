@@ -4,6 +4,7 @@ import json
 from django.conf import settings
 from django.shortcuts import render
 from django.http import JsonResponse
+from django.db import transaction
 from django.views.decorators.http import require_POST, require_GET
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from django.utils import timezone
@@ -17,15 +18,12 @@ from .models import (
     Transaction,
     Voucher,
     BinStatus,
+    BottleScan,
 )
 
 COOKIE_NAME = "kiosk_uid"
 
-# Simple in-memory tracker for "bottle currently being weighed" per user.
-# On real hardware this state lives on the ESP32 (load-cell reading), not
-# in the web server -- here it's simulated so the front-end has something
-# to poll and react to.
-_active_deposits = {}
+BOTTLE_SCAN_TIMEOUT_SECONDS = 90
 
 
 def get_or_create_user(request):
@@ -116,85 +114,237 @@ def api_status(request):
 @require_POST
 def api_insert_start(request):
     """
-    Begin a deposit session. On real hardware this is the moment the IR
-    sensor detects a bottle and the ESP32 confirms it via the break-beam.
-    Here we simulate a short detection window instead of a real sensor.
-
+    Open a database-backed camera scan for this portal user.
+    Only one user can use the physical scanner at a time.
     """
-    user, uid, _ = get_or_create_user(request)
-    _active_deposits[user.id] = {"started_at": timezone.now()}
-    return JsonResponse({"ok": True})
+    user, uid, created_cookie = get_or_create_user(request)
+    now = timezone.now()
+    expires_at = now + timedelta(
+        seconds=BOTTLE_SCAN_TIMEOUT_SECONDS
+    )
+
+    with transaction.atomic():
+        BottleScan.objects.filter(
+            status=BottleScan.WAITING,
+            expires_at__lte=now,
+        ).update(
+            status=BottleScan.EXPIRED,
+            completed_at=now,
+        )
+
+        active_other_scan = (
+            BottleScan.objects
+            .select_for_update()
+            .filter(
+                status=BottleScan.WAITING,
+                expires_at__gt=now,
+            )
+            .exclude(user=user)
+            .first()
+        )
+
+        if active_other_scan is not None:
+            response = JsonResponse(
+                {
+                    "ok": False,
+                    "error": "scanner_busy",
+                    "message": (
+                        "The bottle scanner is currently "
+                        "being used by another user."
+                    ),
+                },
+                status=409,
+            )
+            if created_cookie:
+                _set_uid_cookie(response, uid)
+            return response
+
+        BottleScan.objects.filter(
+            user=user,
+            status=BottleScan.WAITING,
+        ).update(
+            status=BottleScan.CANCELLED,
+            completed_at=now,
+        )
+
+        scan = BottleScan.objects.create(
+            user=user,
+            status=BottleScan.WAITING,
+            expires_at=expires_at,
+        )
+
+    response = JsonResponse(
+        {
+            "ok": True,
+            "scan_id": scan.id,
+            "status": scan.status,
+            "seconds_left": BOTTLE_SCAN_TIMEOUT_SECONDS,
+        }
+    )
+    if created_cookie:
+        _set_uid_cookie(response, uid)
+    return response
 
 
 @require_GET
 def api_insert_poll(request):
     """
-    Simulated bottle detection. Replace this with a real check against
-    the IR sensor's break-beam count when hardware is connected.
-    Per-piece means we don't care about weight anymore -- just "was a
-    bottle detected, yes or no."
+    Return the latest camera-scan state for this portal user.
     """
-    user, uid, _ = get_or_create_user(request)
-    session = _active_deposits.get(user.id)
-    if not session:
-        return JsonResponse({"error": "no active deposit"}, status=400)
+    user, uid, created_cookie = get_or_create_user(request)
+    scan = (
+        BottleScan.objects
+        .filter(user=user)
+        .order_by("-started_at")
+        .first()
+    )
 
-    elapsed = (timezone.now() - session["started_at"]).total_seconds()
-    seconds_left = max(0, 4 - int(elapsed))  # short window, just confirming presence
-    if seconds_left == 0 and session.get("confirmed_piece") is None:
-        session["confirmed_piece"] = True
+    if scan is None:
+        response = JsonResponse(
+            {"ok": False, "error": "no_scan"},
+            status=404,
+        )
+        if created_cookie:
+            _set_uid_cookie(response, uid)
+        return response
 
-    return JsonResponse({
-        "seconds_left": seconds_left,
-        "done": seconds_left == 0,
-    })
+    now = timezone.now()
+    if (
+        scan.status == BottleScan.WAITING
+        and scan.expires_at <= now
+    ):
+        scan.status = BottleScan.EXPIRED
+        scan.completed_at = now
+        scan.save(
+            update_fields=["status", "completed_at"]
+        )
+
+    seconds_left = 0
+    if scan.status == BottleScan.WAITING:
+        seconds_left = max(
+            0,
+            int((scan.expires_at - now).total_seconds()),
+        )
+
+    user.refresh_from_db(
+        fields=["points_balance", "total_pieces"]
+    )
+
+    response = JsonResponse(
+        {
+            "ok": True,
+            "scan_id": scan.id,
+            "status": scan.status,
+            "done": scan.status != BottleScan.WAITING,
+            "seconds_left": seconds_left,
+            "label": scan.label or None,
+            "confidence_percent": (
+                float(scan.confidence_percent)
+                if scan.confidence_percent is not None
+                else None
+            ),
+            "points_awarded": scan.points_awarded,
+            "new_balance": user.points_balance,
+            "is_invalid": (
+                scan.label.strip().lower() == "invalid"
+                if scan.label
+                else False
+            ),
+        }
+    )
+    if created_cookie:
+        _set_uid_cookie(response, uid)
+    return response
 
 
 @require_POST
 def api_insert_confirm(request):
     """
-    Finalize the deposit. Currently simulates the clean/dirty camera
-    check with a random result (mostly clean, some dirty) -- replace
-    this with the real ESP32-CAM/Edge Impulse result once that's wired in.
-    Dirty bottles are rejected (0 points) but still logged, so Reports
-    has real data to chart.
+    Compatibility endpoint for the current portal JavaScript.
+    It reads the saved camera result and never awards points twice.
     """
-    import random
-    user, uid, _ = get_or_create_user(request)
-    session = _active_deposits.pop(user.id, None)
-    piece_confirmed = bool((session or {}).get("confirmed_piece"))
+    user, uid, created_cookie = get_or_create_user(request)
+    scan = (
+        BottleScan.objects
+        .filter(user=user)
+        .order_by("-started_at")
+        .first()
+    )
 
-    if not piece_confirmed:
-        return JsonResponse({"pieces": 0, "points_awarded": 0, "new_balance": user.points_balance, "condition": None})
+    if scan is None:
+        response = JsonResponse(
+            {"ok": False, "error": "no_scan"},
+            status=404,
+        )
+        if created_cookie:
+            _set_uid_cookie(response, uid)
+        return response
 
-    # SIMULATED -- swap for real camera classifier result later
-    is_clean = random.random() < 0.5  # ~50% clean, ~50% dirty, just for demo data
-    condition = Transaction.CLEAN if is_clean else Transaction.DIRTY
+    if scan.status == BottleScan.WAITING:
+        return JsonResponse(
+            {"ok": False, "error": "scan_not_finished"},
+            status=409,
+        )
 
-    rate = BottleRate.objects.first()
-    points = rate.points_per_bottle if (is_clean and rate) else 0
+    user.refresh_from_db(
+        fields=["points_balance", "total_pieces"]
+    )
+    is_invalid = (
+        scan.label.strip().lower() == "invalid"
+        if scan.label
+        else False
+    )
 
-    if is_clean:
-        user.points_balance += points
-        user.total_pieces += 1
-        user.save()
+    if scan.status == BottleScan.ACCEPTED:
+        condition = Transaction.CLEAN
+        pieces = 1
+    elif scan.status == BottleScan.REJECTED:
+        condition = Transaction.DIRTY
+        pieces = 0 if is_invalid else 1
+    else:
+        condition = None
+        pieces = 0
 
-    simulated_weight = round(random.uniform(0.35, 0.55), 2)  # kg tracking, unrelated to points
-    Transaction.objects.create(user=user, type=Transaction.DEPOSIT,
-                                pieces=1, weight_kg=simulated_weight,
-                                condition=condition, points_delta=points)
-
-    return JsonResponse({
-        "pieces": 1, "points_awarded": points, "new_balance": user.points_balance,
-        "condition": condition,
-    })
+    response = JsonResponse(
+        {
+            "ok": True,
+            "pieces": pieces,
+            "points_awarded": scan.points_awarded,
+            "new_balance": user.points_balance,
+            "condition": condition,
+            "status": scan.status,
+            "label": scan.label or None,
+            "confidence_percent": (
+                float(scan.confidence_percent)
+                if scan.confidence_percent is not None
+                else None
+            ),
+            "is_invalid": is_invalid,
+        }
+    )
+    if created_cookie:
+        _set_uid_cookie(response, uid)
+    return response
 
 
 @require_POST
 def api_insert_cancel(request):
-    user, uid, _ = get_or_create_user(request)
-    _active_deposits.pop(user.id, None)
-    return JsonResponse({"ok": True})
+    user, uid, created_cookie = get_or_create_user(request)
+    now = timezone.now()
+    updated = BottleScan.objects.filter(
+        user=user,
+        status=BottleScan.WAITING,
+    ).update(
+        status=BottleScan.CANCELLED,
+        completed_at=now,
+    )
+
+    response = JsonResponse(
+        {"ok": True, "cancelled": updated > 0}
+    )
+    if created_cookie:
+        _set_uid_cookie(response, uid)
+    return response
 
 
 @require_POST

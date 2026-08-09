@@ -18,6 +18,7 @@ from kiosk.models import (
     BottleRate,
     WifiRate,
     BinStatus,
+    BottleScan,
 )
 
 # ============================================================
@@ -324,4 +325,87 @@ def bin_status_live(request):
             else "not_full"
         ),
         "updated_at": bin_status.updated_at.isoformat(),
+    })
+
+
+@login_required
+@require_GET
+def bottle_scan_live(request):
+    """Return the newest bottle scanner state for the live dashboard."""
+    scan = (
+        BottleScan.objects
+        .select_related("user")
+        .order_by("-started_at")
+        .first()
+    )
+
+    if scan is None:
+        return JsonResponse({
+            "ok": True,
+            "available": False,
+            "display_status": "unknown",
+            "message": "No bottle scan recorded yet",
+        })
+
+    now = timezone.now()
+    status = scan.status
+
+    # A browser may close before polling an expired waiting scan. Report the
+    # correct live state without requiring the portal to make another request.
+    if status == BottleScan.WAITING and scan.expires_at <= now:
+        status = BottleScan.EXPIRED
+
+    label = scan.label.strip() or None
+    label_key = (label or "").lower()
+
+    if status == BottleScan.WAITING:
+        display_status = "scanning"
+        message = "Waiting for the camera to classify a bottle"
+    elif status == BottleScan.ACCEPTED:
+        display_status = "accepted"
+        message = "Clean bottle accepted"
+    elif status == BottleScan.REJECTED and label_key == "invalid":
+        display_status = "invalid"
+        message = "Invalid object detected"
+    elif status == BottleScan.REJECTED:
+        display_status = "rejected"
+        message = "Bottle rejected"
+    elif status == BottleScan.CANCELLED:
+        display_status = "cancelled"
+        message = "Bottle scan cancelled"
+    elif status == BottleScan.EXPIRED:
+        display_status = "expired"
+        message = "Bottle scan timed out"
+    else:
+        display_status = "unknown"
+        message = "Unknown scanner state"
+
+    confidence = (
+        float(scan.confidence_percent)
+        if scan.confidence_percent is not None
+        else None
+    )
+    event_time = scan.completed_at or scan.started_at
+    seconds_left = 0
+
+    if status == BottleScan.WAITING:
+        seconds_left = max(
+            0,
+            int((scan.expires_at - now).total_seconds()),
+        )
+
+    return JsonResponse({
+        "ok": True,
+        "available": True,
+        "scan_id": scan.id,
+        "status": status,
+        "display_status": display_status,
+        "message": message,
+        "label": label,
+        "confidence_percent": confidence,
+        "points_awarded": scan.points_awarded,
+        "user": scan.user.mac_display(),
+        "seconds_left": seconds_left,
+        "started_at": scan.started_at.isoformat(),
+        "updated_at": event_time.isoformat(),
     })
