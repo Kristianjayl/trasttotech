@@ -1,2 +1,3 @@
 0 Reject
 1 Clean
+2 No Bottle

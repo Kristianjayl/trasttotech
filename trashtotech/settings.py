@@ -143,3 +143,36 @@ LOGIN_URL = '/staff/login/'
 LOGIN_REDIRECT_URL = '/staff/'
 LOGOUT_REDIRECT_URL = '/staff/login/'
 ESP32_API_TOKEN = os.environ.get("ESP32_API_TOKEN", "")
+
+ESP32_CAM_CAPTURE_URL = os.environ.get(
+    "ESP32_CAM_CAPTURE_URL",
+    "",
+).strip()
+
+ESP32_CAM_TIMEOUT_SECONDS = int(
+    os.environ.get(
+        "ESP32_CAM_TIMEOUT_SECONDS",
+        "10",
+    )
+)
+
+CAMERA_MONITOR_INTERVAL_SECONDS = float(
+    os.environ.get(
+        "CAMERA_MONITOR_INTERVAL_SECONDS",
+        "1",
+    )
+)
+
+CAMERA_MONITOR_MINIMUM_PERCENT = float(
+    os.environ.get(
+        "CAMERA_MONITOR_MINIMUM_PERCENT",
+        "80",
+    )
+)
+
+CAMERA_MONITOR_STABLE_FRAMES = int(
+    os.environ.get(
+        "CAMERA_MONITOR_STABLE_FRAMES",
+        "3",
+    )
+)
