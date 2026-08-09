@@ -44,4 +44,11 @@ urlpatterns = [
     path("about/", views.about, name="staff_about"),
     path("privacy/", views.privacy_policy, name="staff_privacy"),
 
+    # ===================== API's =====================
+
+    path(
+    "api/bin-status/",
+    views.bin_status_live,
+    name="staff_bin_status_live",
+    ),
 ]

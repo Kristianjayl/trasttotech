@@ -219,4 +219,85 @@
         document.getElementById('voucherInput').value = '';
       });
   });
+
+  // ---- Temporary bottle-classifier controls ----
+  const classifierInput = document.getElementById('classifierImage');
+  const classifierButton = document.getElementById('btnRunClassifier');
+  const classifierResult = document.getElementById('classifierResult');
+
+  document.getElementById('btnClassify').addEventListener('click', () => {
+    classifierInput.value = '';
+    classifierResult.textContent = '';
+    classifierResult.className = 'classifier-result';
+    openTray('trayClassify');
+  });
+
+  classifierButton.addEventListener('click', async () => {
+    const image = classifierInput.files[0];
+
+    if (!image) {
+      showToast('Choose a bottle picture first', 'error');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('image', image);
+
+    classifierButton.disabled = true;
+    classifierButton.textContent = 'Checking...';
+    classifierResult.textContent = 'Analyzing bottle...';
+    classifierResult.className = 'classifier-result show';
+
+    try {
+      const response = await fetch('/api/classify-bottle/', {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': getCookie('csrftoken'),
+        },
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Classification failed');
+      }
+
+      const decision = result.is_clean
+        ? 'Bottle Accepted'
+        : 'Bottle Rejected';
+
+      classifierResult.className =
+        'classifier-result show ' +
+        (result.is_clean ? 'accepted' : 'rejected');
+
+      classifierResult.innerHTML = `
+        <strong>${decision}</strong>
+        <span>
+          ${result.label} — ${result.confidence_percent.toFixed(2)}%
+        </span>
+      `;
+
+      showToast(
+        decision,
+        result.is_clean ? 'success' : 'error'
+      );
+    }
+    catch (error) {
+      classifierResult.className =
+        'classifier-result show rejected';
+
+      classifierResult.innerHTML = `
+        <strong>Unable to check image</strong>
+        <span>${error.message}</span>
+      `;
+
+      showToast('Classification failed', 'error');
+    }
+    finally {
+      classifierButton.disabled = false;
+      classifierButton.textContent = 'Check Bottle';
+    }
+  });
+
 })();

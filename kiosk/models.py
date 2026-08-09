@@ -73,3 +73,20 @@ class Voucher(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=PENDING)
     generated_at = models.DateTimeField(auto_now_add=True)
     redeemed_at = models.DateTimeField(null=True, blank=True)
+
+class BinStatus(models.Model):
+    device_id = models.CharField(
+        max_length=64,
+        unique=True,
+        default="main-bin",
+    )
+    is_full = models.BooleanField(default=False)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name_plural = "Bin statuses"
+
+    def __str__(self):
+        status = "Full" if self.is_full else "Not full"
+        return f"{self.device_id}: {status}"
+

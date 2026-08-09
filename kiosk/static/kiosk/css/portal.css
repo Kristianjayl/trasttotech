@@ -714,3 +714,60 @@ table.rates td{ padding:9px 6px; border-bottom:1px solid var(--chassis-edge); }
     box-shadow:none;
   }
 }
+
+.classifier-file {
+  display: block;
+  width: 100%;
+  margin: 20px 0 12px;
+  padding: 12px;
+  border: 1px solid #ccd2d8;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.classifier-button {
+  width: 100%;
+  padding: 13px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--btn-blue);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.classifier-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.classifier-result {
+  display: none;
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.classifier-result.show {
+  display: block;
+}
+
+.classifier-result strong,
+.classifier-result span {
+  display: block;
+}
+
+.classifier-result span {
+  margin-top: 5px;
+}
+
+.classifier-result.accepted {
+  color: #1f6b33;
+  background: #e7f7ea;
+}
+
+.classifier-result.rejected {
+  color: #9a2e1c;
+  background: #fbe9e6;
+}

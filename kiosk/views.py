@@ -1,13 +1,23 @@
 import uuid
+import hmac
+import json
+from django.conf import settings
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST, require_GET
-from django.views.decorators.csrf import ensure_csrf_cookie
+from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from django.utils import timezone
 from datetime import timedelta
+from .ml_classifier import classify_bottle
 
-
-from .models import KioskUser, BottleRate, WifiRate, Transaction, Voucher
+from .models import (
+    KioskUser,
+    BottleRate,
+    WifiRate,
+    Transaction,
+    Voucher,
+    BinStatus,
+)
 
 COOKIE_NAME = "kiosk_uid"
 
@@ -263,3 +273,139 @@ def api_voucher_submit(request):
     voucher.redeemed_at = timezone.now()
     voucher.save()
     return JsonResponse({"ok": True})
+
+@require_POST
+def api_classify_bottle(request):
+    uploaded_image = request.FILES.get("image")
+
+    if uploaded_image is None:
+        return JsonResponse(
+            {
+                "ok": False,
+                "error": "image_required",
+            },
+            status=400,
+        )
+
+    if uploaded_image.size > 5 * 1024 * 1024:
+        return JsonResponse(
+            {
+                "ok": False,
+                "error": "image_too_large",
+            },
+            status=413,
+        )
+
+    if not uploaded_image.content_type.startswith("image/"):
+        return JsonResponse(
+            {
+                "ok": False,
+                "error": "invalid_image_type",
+            },
+            status=400,
+        )
+
+    try:
+        result = classify_bottle(uploaded_image)
+    except FileNotFoundError as error:
+        return JsonResponse(
+            {
+                "ok": False,
+                "error": "model_unavailable",
+                "details": str(error),
+            },
+            status=503,
+        )
+    except (OSError, ValueError):
+        return JsonResponse(
+            {
+                "ok": False,
+                "error": "invalid_image",
+            },
+            status=400,
+        )
+
+    return JsonResponse(
+        {
+            "ok": True,
+            **result,
+        }
+    )
+
+@require_GET
+def api_device_ping(request):
+    return JsonResponse({
+        "ok": True,
+        "message": "ESP32 reached Django",
+    })
+
+@csrf_exempt
+@require_POST
+def api_bin_status(request):
+    expected_token = settings.ESP32_API_TOKEN
+    provided_token = request.headers.get(
+        "X-Device-Token",
+        "",
+    )
+
+    if (
+        not expected_token
+        or not hmac.compare_digest(
+            provided_token,
+            expected_token,
+        )
+    ):
+        return JsonResponse(
+            {
+                "ok": False,
+                "error": "unauthorized_device",
+            },
+            status=403,
+        )
+
+    try:
+        body = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse(
+            {
+                "ok": False,
+                "error": "invalid_json",
+            },
+            status=400,
+        )
+
+    is_full = body.get("is_full")
+
+    if not isinstance(is_full, bool):
+        return JsonResponse(
+            {
+                "ok": False,
+                "error": "is_full_must_be_boolean",
+            },
+            status=400,
+        )
+
+    device_id = (
+        str(body.get("device_id") or "main-bin")
+        .strip()[:64]
+        or "main-bin"
+    )
+
+    bin_status, _ = BinStatus.objects.update_or_create(
+        device_id=device_id,
+        defaults={
+            "is_full": is_full,
+        },
+    )
+
+    return JsonResponse({
+        "ok": True,
+        "device_id": bin_status.device_id,
+        "is_full": bin_status.is_full,
+        "status": (
+            "full"
+            if bin_status.is_full
+            else "not_full"
+        ),
+        "updated_at": bin_status.updated_at.isoformat(),
+    })

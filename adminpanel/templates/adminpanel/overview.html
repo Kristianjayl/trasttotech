@@ -6,32 +6,130 @@
 {% block content %}
 <h1>Welcome, {{ user.username }}!</h1>
 
-<div class="grid" style="grid-template-columns:repeat(5,1fr); margin-bottom:16px;">
+<div
+  class="grid"
+  style="
+    grid-template-columns:repeat(
+      auto-fit,
+      minmax(180px, 1fr)
+    );
+    margin-bottom:16px;
+  "
+>
   <div class="card kpi">
     <div class="label">Total bottles collected</div>
     <div class="value">{{ total_pieces }}</div>
   </div>
+
   <div class="card kpi">
     <div class="label">Total plastic (kg)</div>
     <div class="value">{{ total_kg }}</div>
   </div>
+
   <div class="card kpi">
     <div class="label">Points issued</div>
     <div class="value">{{ points_issued }}</div>
   </div>
+
   <div class="card kpi">
     <div class="label">WiFi sessions</div>
     <div class="value">{{ wifi_sessions }}</div>
   </div>
+
   <div class="card kpi">
     <div class="label">Active users</div>
     <div class="value">{{ active_users }}</div>
+  </div>
+
+  <div
+    class="card kpi"
+    id="bin-status-card"
+    {% if bin_status and bin_status.is_full %}
+      style="
+        border:2px solid #dc2626;
+        background:rgba(220,38,38,0.06);
+      "
+    {% endif %}
+  >
+    <div class="label">Main Bin Status</div>
+
+    <div
+      class="value"
+      id="bin-status-value"
+      {% if bin_status and bin_status.is_full %}
+        style="color:#dc2626;"
+      {% elif bin_status %}
+        style="color:#16a34a;"
+      {% else %}
+        style="color:#6b7280;"
+      {% endif %}
+    >
+      {% if not bin_status %}
+        UNKNOWN
+      {% elif bin_status.is_full %}
+        FULL
+      {% else %}
+        NOT FULL
+      {% endif %}
+    </div>
+
+    <div
+      class="hint"
+      id="bin-status-message"
+    >
+      {% if not bin_status %}
+        Waiting for the ESP32 sensor
+      {% elif bin_status.is_full %}
+        Ready for collection
+      {% else %}
+        Space still available
+      {% endif %}
+    </div>
+
+    <div
+      id="bin-full-alert"
+      style="
+        display:
+          {% if bin_status and bin_status.is_full %}
+            block
+          {% else %}
+            none
+          {% endif %};
+        margin-top:10px;
+        padding:8px;
+        border-radius:8px;
+        color:#991b1b;
+        background:#fee2e2;
+        font-weight:700;
+      "
+    >
+      &#9888; Bin ready for collection
+    </div>
+
+    <div
+      class="hint"
+      id="bin-status-updated"
+      style="margin-top:8px;"
+    >
+      {% if bin_status %}
+        Updated
+        {{ bin_status.updated_at|date:"M d, Y h:i:s A" }}
+      {% else %}
+        No sensor reading yet
+      {% endif %}
+    </div>
   </div>
 </div>
 
 <div class="card">
   <h3>Recent Transactions</h3>
-  <div class="hint" style="margin-bottom:14px;">Latest activity across the system</div>
+
+  <div
+    class="hint"
+    style="margin-bottom:14px;"
+  >
+    Latest activity across the system
+  </div>
 
   <div class="table-scroll">
     <table>
@@ -44,22 +142,148 @@
           <th>Points</th>
         </tr>
       </thead>
+
       <tbody>
         {% for t in recent_transactions %}
           <tr class="rowhover">
             <td>{{ t.created_at }}</td>
             <td>{{ t.user.mac_display }}</td>
-            <td><span class="pill gray">{{ t.get_type_display }}</span></td>
+            <td>
+              <span class="pill gray">
+                {{ t.get_type_display }}
+              </span>
+            </td>
             <td>{{ t.pieces|default:"-" }}</td>
             <td>{{ t.points_delta }}</td>
           </tr>
         {% empty %}
           <tr>
-            <td colspan="5" class="table-empty">No transactions yet.</td>
+            <td
+              colspan="5"
+              class="table-empty"
+            >
+              No transactions yet.
+            </td>
           </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
 </div>
+
+<script>
+  (() => {
+    const statusUrl =
+      "{% url 'staff_bin_status_live' %}";
+
+    const card =
+      document.getElementById("bin-status-card");
+
+    const value =
+      document.getElementById("bin-status-value");
+
+    const message =
+      document.getElementById("bin-status-message");
+
+    const alertBox =
+      document.getElementById("bin-full-alert");
+
+    const updated =
+      document.getElementById("bin-status-updated");
+
+    function showUnknown() {
+      value.textContent = "UNKNOWN";
+      value.style.color = "#6b7280";
+
+      message.textContent =
+        "Waiting for the ESP32 sensor";
+
+      alertBox.style.display = "none";
+
+      card.style.border = "";
+      card.style.background = "";
+
+      updated.textContent =
+        "No sensor reading yet";
+    }
+
+    function showBinStatus(data) {
+      if (!data.available) {
+        showUnknown();
+        return;
+      }
+
+      if (data.is_full) {
+        value.textContent = "FULL";
+        value.style.color = "#dc2626";
+
+        message.textContent =
+          "Ready for collection";
+
+        alertBox.style.display = "block";
+
+        card.style.border =
+          "2px solid #dc2626";
+
+        card.style.background =
+          "rgba(220,38,38,0.06)";
+      } else {
+        value.textContent = "NOT FULL";
+        value.style.color = "#16a34a";
+
+        message.textContent =
+          "Space still available";
+
+        alertBox.style.display = "none";
+
+        card.style.border = "";
+        card.style.background = "";
+      }
+
+      const updateTime =
+        new Date(data.updated_at);
+
+      updated.textContent =
+        "Updated " +
+        updateTime.toLocaleString();
+    }
+
+    async function refreshBinStatus() {
+      try {
+        const response = await fetch(
+          statusUrl,
+          {
+            method: "GET",
+            credentials: "same-origin",
+            cache: "no-store",
+            headers: {
+              "X-Requested-With":
+                "XMLHttpRequest",
+            },
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(
+            "Dashboard request failed"
+          );
+        }
+
+        const data = await response.json();
+
+        showBinStatus(data);
+      } catch (error) {
+        updated.textContent =
+          "Live update temporarily unavailable";
+      }
+    }
+
+    refreshBinStatus();
+
+    setInterval(
+      refreshBinStatus,
+      2000
+    );
+  })();
+</script>
 {% endblock %}

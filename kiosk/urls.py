@@ -12,4 +12,19 @@ urlpatterns = [
     path("api/pause/", views.api_pause_toggle, name="api_pause_toggle"),
     path("api/voucher/generate/", views.api_voucher_generate, name="api_voucher_generate"),
     path("api/voucher/submit/", views.api_voucher_submit, name="api_voucher_submit"),
+    path(
+    "api/classify-bottle/",
+    views.api_classify_bottle,
+    name="api_classify_bottle",
+    ),
+    path(
+    "api/device/ping/",
+    views.api_device_ping,
+    name="api_device_ping",
+    ),
+    path(
+    "api/device/bin-status/",
+    views.api_bin_status,
+    name="api_bin_status",
+    ),
 ]

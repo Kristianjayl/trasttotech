@@ -6,11 +6,19 @@ from django.db.models import Sum, Count, Q
 from django.utils import timezone
 from datetime import timedelta
 from django.db.models.functions import TruncMonth, TruncYear
+from django.http import JsonResponse
+from django.views.decorators.http import require_GET
 
 from .decorators import role_required
 from .models import StaffProfile
-from kiosk.models import KioskUser, Transaction, Voucher, BottleRate, WifiRate
-
+from kiosk.models import (
+    KioskUser,
+    Transaction,
+    Voucher,
+    BottleRate,
+    WifiRate,
+    BinStatus,
+)
 
 # ============================================================
 # AUTH
@@ -41,17 +49,21 @@ def overview(request):
 
     recent_transactions = Transaction.objects.select_related("user").order_by("-created_at")[:10]
 
-    return render(request, "adminpanel/overview.html", {
-        "total_pieces": total_pieces,
-        "total_kg": round(total_kg, 2),
-        "points_issued": points_issued,
-        "wifi_sessions": wifi_sessions,
-        "active_users": active_users,
-        "internet_hours": round(internet_minutes / 60, 1),
-        "recent_transactions": recent_transactions,
-        "today": today,
-    })
+    bin_status = BinStatus.objects.filter(
+    device_id="main-bin"
+    ).first()
 
+    return render(request, "adminpanel/overview.html", {
+    "total_pieces": total_pieces,
+    "total_kg": round(total_kg, 2),
+    "points_issued": points_issued,
+    "wifi_sessions": wifi_sessions,
+    "active_users": active_users,
+    "internet_hours": round(internet_minutes / 60, 1),
+    "recent_transactions": recent_transactions,
+    "bin_status": bin_status,
+    "today": today,
+    })
 
 # ============================================================
 # CLIENT USERS (kiosk customers -- points, bottle counts, etc.)
@@ -287,4 +299,29 @@ def reports(request):
     return render(request, "adminpanel/reports.html", {
         "monthly": monthly,
         "yearly": yearly,
+    })
+
+@login_required
+@require_GET
+def bin_status_live(request):
+    bin_status = BinStatus.objects.filter(
+        device_id="main-bin"
+    ).first()
+
+    if bin_status is None:
+        return JsonResponse({
+            "ok": True,
+            "available": False,
+        })
+
+    return JsonResponse({
+        "ok": True,
+        "available": True,
+        "is_full": bin_status.is_full,
+        "status": (
+            "full"
+            if bin_status.is_full
+            else "not_full"
+        ),
+        "updated_at": bin_status.updated_at.isoformat(),
     })

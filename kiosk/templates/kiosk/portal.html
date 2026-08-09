@@ -57,6 +57,9 @@
         <button type="button" class="vbtn green" id="btnInsert">
           Insert Bottle <span class="arrow">&#8250;</span>
         </button>
+        <button type="button" class="vbtn blue" id="btnClassify">
+          Test Bottle Photo <span class="arrow">&#8250;</span>
+        </button>
         <button type="button" class="vbtn purple" id="btnRedeem">
           Redeem Points <span class="arrow">&#8250;</span>
         </button>
@@ -114,6 +117,48 @@
       <button type="button" class="cancel-link" id="btnCancelInsert">Cancel</button>
     </div>
     <div id="weighResult" style="display:none;"></div>
+  </div>
+</div>
+
+<!-- TEMPORARY BOTTLE CLASSIFIER -->
+<div class="tray-backdrop" id="trayClassify">
+  <div class="tray">
+    <button
+      type="button"
+      class="close-x"
+      data-close="trayClassify"
+      aria-label="Close"
+    >&times;</button>
+
+    <div class="tray-handle"></div>
+
+    <h2>Test Bottle Photo</h2>
+
+    <div class="sub">
+      Upload one bottle picture to test the trained model.
+      No points will be awarded.
+    </div>
+
+    <input
+      type="file"
+      id="classifierImage"
+      class="classifier-file"
+      accept="image/jpeg,image/png,image/webp"
+    >
+
+    <button
+      type="button"
+      id="btnRunClassifier"
+      class="classifier-button"
+    >
+      Check Bottle
+    </button>
+
+    <div
+      id="classifierResult"
+      class="classifier-result"
+      aria-live="polite"
+    ></div>
   </div>
 </div>
 
