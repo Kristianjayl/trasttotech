@@ -1,6 +1,5 @@
 from django.db import models
 
-
 # this is a record of a kiosk user, identified by device_id (which is a cookie-based id formatted to look like a MAC address)
 class KioskUser(models.Model):
     """
@@ -17,6 +16,8 @@ class KioskUser(models.Model):
     paused = models.BooleanField(default=False)
     paused_at = models.DateTimeField(null=True, blank=True)
     session_expires_at = models.DateTimeField(null=True, blank=True)
+    last_ip = models.GenericIPAddressField(null=True, blank=True)
+    last_seen_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def mac_display(self):
@@ -91,6 +92,7 @@ class BinStatus(models.Model):
         status = "Full" if self.is_full else "Not full"
         return f"{self.device_id}: {status}"
 
+
 class BottleScan(models.Model):
     WAITING = "waiting"
     ACCEPTED = "accepted"
@@ -111,51 +113,29 @@ class BottleScan(models.Model):
         on_delete=models.CASCADE,
         related_name="bottle_scans",
     )
-
     status = models.CharField(
         max_length=12,
         choices=STATUS_CHOICES,
         default=WAITING,
         db_index=True,
     )
-
-    # Stores Clean, Reject, Invalid, or No Bottle.
-    label = models.CharField(
-        max_length=64,
-        blank=True,
-    )
-
+    label = models.CharField(max_length=64, blank=True)
     confidence_percent = models.DecimalField(
         max_digits=5,
         decimal_places=2,
         null=True,
         blank=True,
     )
-
-    points_awarded = models.PositiveIntegerField(
-        default=0,
-    )
-
-    started_at = models.DateTimeField(
-        auto_now_add=True,
-    )
-
+    points_awarded = models.PositiveIntegerField(default=0)
+    started_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField()
-
-    completed_at = models.DateTimeField(
-        null=True,
-        blank=True,
-    )
+    completed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["-started_at"]
-
         indexes = [
             models.Index(
-                fields=[
-                    "status",
-                    "expires_at",
-                ],
+                fields=["status", "expires_at"],
                 name="bscan_status_exp_idx",
             ),
         ]
@@ -163,6 +143,7 @@ class BottleScan(models.Model):
     def __str__(self):
         return (
             f"Scan {self.id}: "
-            f"{self.user.mac_display()} — "
+            f"{self.user.mac_display()} - "
             f"{self.status}"
         )
+

@@ -1,2 +1,0 @@
-0 Reject
-1 Clean

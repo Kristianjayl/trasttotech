@@ -37,8 +37,19 @@
   </div>
 
   <div class="card kpi">
-    <div class="label">Active users</div>
-    <div class="value">{{ active_users }}</div>
+    <div class="label">Connected WiFi users</div>
+    <div
+      class="value"
+      id="wifi-connected-count"
+    >
+      {{ active_users }}
+    </div>
+    <div
+      class="hint"
+      id="wifi-access-count"
+    >
+      Checking active WiFi time...
+    </div>
   </div>
 
   <div
@@ -159,6 +170,43 @@
   </div>
 </div>
 
+<div
+  class="card"
+  style="margin-bottom:16px;"
+>
+  <h3>Connected WiFi Users</h3>
+
+  <div
+    class="hint"
+    id="wifi-users-message"
+    style="margin-bottom:14px;"
+  >
+    Clients seen by the Django portal during the last 30 seconds
+  </div>
+
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>User</th>
+          <th>IP address</th>
+          <th>WiFi access</th>
+          <th>Time remaining</th>
+          <th>Points</th>
+          <th>Last seen</th>
+        </tr>
+      </thead>
+      <tbody id="wifi-users-body">
+        <tr>
+          <td colspan="6" class="table-empty">
+            Checking connected users...
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
 <div class="card">
   <h3>Recent Transactions</h3>
 
@@ -217,6 +265,9 @@
     const bottleScanUrl =
       "{% url 'staff_bottle_scan_live' %}";
 
+    const wifiUsersUrl =
+      "/staff/api/wifi-users/";
+
     const card =
       document.getElementById("bin-status-card");
 
@@ -246,6 +297,18 @@
 
     const scanUpdated =
       document.getElementById("bottle-scan-updated");
+
+    const wifiConnectedCount =
+      document.getElementById("wifi-connected-count");
+
+    const wifiAccessCount =
+      document.getElementById("wifi-access-count");
+
+    const wifiUsersMessage =
+      document.getElementById("wifi-users-message");
+
+    const wifiUsersBody =
+      document.getElementById("wifi-users-body");
 
     const scanStyles = {
       scanning: {
@@ -461,8 +524,120 @@
       }
     }
 
+    function formatWifiTime(totalSeconds) {
+      const safeSeconds = Math.max(
+        0,
+        Number(totalSeconds) || 0
+      );
+      const hours = Math.floor(safeSeconds / 3600);
+      const minutes = Math.floor(
+        (safeSeconds % 3600) / 60
+      );
+      const seconds = Math.floor(safeSeconds % 60);
+
+      return [hours, minutes, seconds]
+        .map(value => String(value).padStart(2, "0"))
+        .join(":");
+    }
+
+    function makeCell(text) {
+      const cell = document.createElement("td");
+      cell.textContent = text;
+      return cell;
+    }
+
+    function showWifiUsers(data) {
+      wifiConnectedCount.textContent =
+        data.connected_count;
+      wifiAccessCount.textContent =
+        `${data.active_access_count} with active WiFi time`;
+      wifiUsersMessage.textContent =
+        "Clients seen by the Django portal during the last 30 seconds";
+
+      wifiUsersBody.replaceChildren();
+
+      if (data.users.length === 0) {
+        const row = document.createElement("tr");
+        const cell = document.createElement("td");
+        cell.colSpan = 6;
+        cell.className = "table-empty";
+        cell.textContent = "No connected portal users";
+        row.appendChild(cell);
+        wifiUsersBody.appendChild(row);
+        return;
+      }
+
+      data.users.forEach(client => {
+        const row = document.createElement("tr");
+        row.className = "rowhover";
+
+        row.appendChild(makeCell(client.user));
+        row.appendChild(makeCell(client.ip));
+
+        const statusCell = document.createElement("td");
+        const statusPill = document.createElement("span");
+        statusPill.className = "pill gray";
+
+        if (client.access_status === "active") {
+          statusPill.textContent = "ACTIVE";
+          statusPill.style.color = "#166534";
+          statusPill.style.background = "#dcfce7";
+        } else if (client.access_status === "paused") {
+          statusPill.textContent = "PAUSED";
+          statusPill.style.color = "#92400e";
+          statusPill.style.background = "#fef3c7";
+        } else {
+          statusPill.textContent = "NO TIME";
+        }
+
+        statusCell.appendChild(statusPill);
+        row.appendChild(statusCell);
+        row.appendChild(
+          makeCell(
+            formatWifiTime(client.remaining_seconds)
+          )
+        );
+        row.appendChild(makeCell(client.points));
+        row.appendChild(
+          makeCell(
+            new Date(client.last_seen_at)
+              .toLocaleTimeString()
+          )
+        );
+
+        wifiUsersBody.appendChild(row);
+      });
+    }
+
+    async function refreshWifiUsers() {
+      try {
+        const response = await fetch(
+          wifiUsersUrl,
+          {
+            method: "GET",
+            credentials: "same-origin",
+            cache: "no-store",
+            headers: {
+              "X-Requested-With": "XMLHttpRequest",
+            },
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error("WiFi users request failed");
+        }
+
+        const data = await response.json();
+        showWifiUsers(data);
+      } catch (error) {
+        wifiUsersMessage.textContent =
+          "Live WiFi user update temporarily unavailable";
+      }
+    }
+
     refreshBinStatus();
     refreshBottleScan();
+    refreshWifiUsers();
 
     setInterval(
       refreshBinStatus,
@@ -472,6 +647,11 @@
     setInterval(
       refreshBottleScan,
       1000
+    );
+
+    setInterval(
+      refreshWifiUsers,
+      2000
     );
   })();
 </script>

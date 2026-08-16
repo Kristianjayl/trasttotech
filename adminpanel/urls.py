@@ -56,4 +56,9 @@ urlpatterns = [
         views.bottle_scan_live,
         name="staff_bottle_scan_live",
     ),
+    path(
+        "api/wifi-users/",
+        views.wifi_users_live,
+        name="staff_wifi_users_live",
+    ),
 ]

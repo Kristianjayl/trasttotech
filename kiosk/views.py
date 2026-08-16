@@ -33,6 +33,15 @@ def get_or_create_user(request):
         uid = uuid.uuid4().hex
         created_cookie = True
     user, _ = KioskUser.objects.get_or_create(device_id=uid)
+
+    # The portal is reached directly over the laptop hotspot, so
+    # REMOTE_ADDR is the client's real hotspot IP (for example,
+    # 192.168.137.25). Do not trust X-Forwarded-For here.
+    client_ip = request.META.get("REMOTE_ADDR")
+    user.last_ip = client_ip or None
+    user.last_seen_at = timezone.now()
+    user.save(update_fields=["last_ip", "last_seen_at"])
+
     return user, uid, created_cookie
 
 
@@ -61,13 +70,25 @@ def _remaining_seconds(user):
 
 
 def _user_state(user):
+    remaining_seconds = _remaining_seconds(user)
+    recently_seen = (
+        user.last_seen_at is not None
+        and user.last_seen_at
+        >= timezone.now() - timedelta(seconds=30)
+    )
+
     return {
         "mac": user.mac_display(),
-        "ip": "10.42.0.1",
+        "ip": user.last_ip or "Unknown",
         "points": user.points_balance,
-        "remaining_seconds": _remaining_seconds(user),
+        "remaining_seconds": remaining_seconds,
         "paused": user.paused,
-        "connected": True,
+        "connected": recently_seen,
+        "wifi_access_active": (
+            recently_seen
+            and remaining_seconds > 0
+            and not user.paused
+        ),
     }
 
 

@@ -44,7 +44,11 @@ def overview(request):
     points_issued = Transaction.objects.filter(type=Transaction.DEPOSIT).aggregate(
         total=Sum("points_delta"))["total"] or 0
     wifi_sessions = Transaction.objects.filter(type=Transaction.WIFI_REDEEM).count()
-    active_users = KioskUser.objects.filter(points_balance__gt=0).count()
+    # A portal client reports its presence every eight seconds. Treat clients
+    # seen during the last 30 seconds as connected to the prototype hotspot.
+    active_users = KioskUser.objects.filter(
+        last_seen_at__gte=timezone.now() - timedelta(seconds=30)
+    ).count()
     internet_minutes = Transaction.objects.filter(type=Transaction.WIFI_REDEEM).aggregate(
         total=Sum("wifi_minutes"))["total"] or 0
 
@@ -408,4 +412,62 @@ def bottle_scan_live(request):
         "seconds_left": seconds_left,
         "started_at": scan.started_at.isoformat(),
         "updated_at": event_time.isoformat(),
+    })
+
+
+@login_required
+@require_GET
+def wifi_users_live(request):
+    """Return portal clients recently seen on the prototype hotspot."""
+    now = timezone.now()
+    cutoff = now - timedelta(seconds=30)
+    users = list(
+        KioskUser.objects
+        .filter(last_seen_at__gte=cutoff)
+        .order_by("-last_seen_at")
+    )
+
+    client_rows = []
+    active_access_count = 0
+
+    for kiosk_user in users:
+        if kiosk_user.paused or not kiosk_user.session_expires_at:
+            remaining_seconds = max(0, kiosk_user.remaining_seconds)
+        else:
+            remaining_seconds = max(
+                0,
+                int(
+                    (
+                        kiosk_user.session_expires_at - now
+                    ).total_seconds()
+                ),
+            )
+
+        access_active = (
+            remaining_seconds > 0
+            and not kiosk_user.paused
+        )
+
+        if access_active:
+            access_status = "active"
+            active_access_count += 1
+        elif kiosk_user.paused and remaining_seconds > 0:
+            access_status = "paused"
+        else:
+            access_status = "no_time"
+
+        client_rows.append({
+            "user": kiosk_user.mac_display(),
+            "ip": kiosk_user.last_ip or "Unknown",
+            "access_status": access_status,
+            "remaining_seconds": remaining_seconds,
+            "points": kiosk_user.points_balance,
+            "last_seen_at": kiosk_user.last_seen_at.isoformat(),
+        })
+
+    return JsonResponse({
+        "ok": True,
+        "connected_count": len(client_rows),
+        "active_access_count": active_access_count,
+        "users": client_rows,
     })
