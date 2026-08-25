@@ -322,12 +322,14 @@ def bin_status_live(request):
     return JsonResponse({
         "ok": True,
         "available": True,
+        "fill_percent": bin_status.fill_percent,
         "is_full": bin_status.is_full,
-        "status": (
-            "full"
-            if bin_status.is_full
-            else "not_full"
-        ),
+        "status": {
+            BinStatus.EMPTY: "empty",
+            BinStatus.LOW: "low",
+            BinStatus.HALF: "half",
+            BinStatus.FULL: "full",
+        }.get(bin_status.fill_percent, "unknown"),
         "updated_at": bin_status.updated_at.isoformat(),
     })
 

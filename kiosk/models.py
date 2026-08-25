@@ -77,10 +77,25 @@ class Voucher(models.Model):
     redeemed_at = models.DateTimeField(null=True, blank=True)
 
 class BinStatus(models.Model):
+    EMPTY = 0
+    LOW = 25
+    HALF = 50
+    FULL = 100
+    FILL_LEVEL_CHOICES = [
+        (EMPTY, "Empty"),
+        (LOW, "25%"),
+        (HALF, "50%"),
+        (FULL, "Full"),
+    ]
+
     device_id = models.CharField(
         max_length=64,
         unique=True,
         default="main-bin",
+    )
+    fill_percent = models.PositiveSmallIntegerField(
+        choices=FILL_LEVEL_CHOICES,
+        default=EMPTY,
     )
     is_full = models.BooleanField(default=False)
     updated_at = models.DateTimeField(auto_now=True)
@@ -89,8 +104,7 @@ class BinStatus(models.Model):
         verbose_name_plural = "Bin statuses"
 
     def __str__(self):
-        status = "Full" if self.is_full else "Not full"
-        return f"{self.device_id}: {status}"
+        return f"{self.device_id}: {self.fill_percent}%"
 
 
 class BottleScan(models.Model):

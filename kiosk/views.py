@@ -545,16 +545,57 @@ def api_bin_status(request):
             status=400,
         )
 
+    fill_percent = body.get("fill_percent")
     is_full = body.get("is_full")
 
-    if not isinstance(is_full, bool):
-        return JsonResponse(
-            {
-                "ok": False,
-                "error": "is_full_must_be_boolean",
-            },
-            status=400,
-        )
+    if fill_percent is None:
+        # Backward compatibility for the original one-sensor firmware.
+        if not isinstance(is_full, bool):
+            return JsonResponse(
+                {
+                    "ok": False,
+                    "error": "is_full_must_be_boolean",
+                },
+                status=400,
+            )
+        fill_percent = 100 if is_full else 0
+    else:
+        allowed_levels = {
+            BinStatus.EMPTY,
+            BinStatus.LOW,
+            BinStatus.HALF,
+            BinStatus.FULL,
+        }
+
+        if (
+            isinstance(fill_percent, bool)
+            or not isinstance(fill_percent, int)
+            or fill_percent not in allowed_levels
+        ):
+            return JsonResponse(
+                {
+                    "ok": False,
+                    "error": "invalid_fill_percent",
+                    "allowed": sorted(allowed_levels),
+                },
+                status=400,
+            )
+
+        calculated_is_full = fill_percent == BinStatus.FULL
+
+        if is_full is not None and (
+            not isinstance(is_full, bool)
+            or is_full != calculated_is_full
+        ):
+            return JsonResponse(
+                {
+                    "ok": False,
+                    "error": "inconsistent_bin_status",
+                },
+                status=400,
+            )
+
+        is_full = calculated_is_full
 
     device_id = (
         str(body.get("device_id") or "main-bin")
@@ -565,6 +606,7 @@ def api_bin_status(request):
     bin_status, _ = BinStatus.objects.update_or_create(
         device_id=device_id,
         defaults={
+            "fill_percent": fill_percent,
             "is_full": is_full,
         },
     )
@@ -572,11 +614,13 @@ def api_bin_status(request):
     return JsonResponse({
         "ok": True,
         "device_id": bin_status.device_id,
+        "fill_percent": bin_status.fill_percent,
         "is_full": bin_status.is_full,
-        "status": (
-            "full"
-            if bin_status.is_full
-            else "not_full"
-        ),
+        "status": {
+            BinStatus.EMPTY: "empty",
+            BinStatus.LOW: "low",
+            BinStatus.HALF: "half",
+            BinStatus.FULL: "full",
+        }[bin_status.fill_percent],
         "updated_at": bin_status.updated_at.isoformat(),
     })

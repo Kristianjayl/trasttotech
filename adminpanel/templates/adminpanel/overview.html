@@ -116,9 +116,13 @@
       {% if not bin_status %}
         UNKNOWN
       {% elif bin_status.is_full %}
-        FULL
+        100% FULL
+      {% elif bin_status.fill_percent == 50 %}
+        50%
+      {% elif bin_status.fill_percent == 25 %}
+        25%
       {% else %}
-        NOT FULL
+        EMPTY
       {% endif %}
     </div>
 
@@ -130,8 +134,12 @@
         Waiting for the ESP32 sensor
       {% elif bin_status.is_full %}
         Ready for collection
+      {% elif bin_status.fill_percent == 50 %}
+        Bin is half full
+      {% elif bin_status.fill_percent == 25 %}
+        Bin has reached the first warning level
       {% else %}
-        Space still available
+        Bin is empty
       {% endif %}
     </div>
 
@@ -370,8 +378,12 @@
         return;
       }
 
-      if (data.is_full) {
-        value.textContent = "FULL";
+      const level = Number(
+        data.fill_percent ?? (data.is_full ? 100 : 0)
+      );
+
+      if (level >= 100) {
+        value.textContent = "100% FULL";
         value.style.color = "#dc2626";
 
         message.textContent =
@@ -384,12 +396,28 @@
 
         card.style.background =
           "rgba(220,38,38,0.06)";
-      } else {
-        value.textContent = "NOT FULL";
-        value.style.color = "#16a34a";
+      } else if (level >= 50) {
+        value.textContent = "50%";
+        value.style.color = "#d97706";
+
+        message.textContent = "Bin is half full";
+        alertBox.style.display = "none";
+        card.style.border = "2px solid #d97706";
+        card.style.background = "rgba(217,119,6,0.06)";
+      } else if (level >= 25) {
+        value.textContent = "25%";
+        value.style.color = "#2563eb";
 
         message.textContent =
-          "Space still available";
+          "Bin has reached the first warning level";
+        alertBox.style.display = "none";
+        card.style.border = "2px solid #2563eb";
+        card.style.background = "rgba(37,99,235,0.05)";
+      } else {
+        value.textContent = "EMPTY";
+        value.style.color = "#16a34a";
+
+        message.textContent = "Bin is empty";
 
         alertBox.style.display = "none";
 
