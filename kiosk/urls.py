@@ -23,6 +23,11 @@ urlpatterns = [
     name="api_device_ping",
     ),
     path(
+    "api/device/scan-status/",
+    views.api_device_scan_status,
+    name="api_device_scan_status",
+    ),
+    path(
     "api/device/bin-status/",
     views.api_bin_status,
     name="api_bin_status",

@@ -135,16 +135,53 @@ def api_status(request):
 @require_POST
 def api_insert_start(request):
     """
-    Open a database-backed camera scan for this portal user.
-    Only one user can use the physical scanner at a time.
+    Start a camera scan only when the main bin has space.
+
+    The database check is authoritative, so the safety rule cannot
+    be bypassed by calling the endpoint without using the portal.
     """
     user, uid, created_cookie = get_or_create_user(request)
+
     now = timezone.now()
     expires_at = now + timedelta(
         seconds=BOTTLE_SCAN_TIMEOUT_SECONDS
     )
 
     with transaction.atomic():
+        bin_status = (
+            BinStatus.objects
+            .select_for_update()
+            .filter(device_id="main-bin")
+            .first()
+        )
+
+        bin_is_full = (
+            bin_status is not None
+            and (
+                bin_status.is_full
+                or bin_status.fill_percent == BinStatus.FULL
+            )
+        )
+
+        if bin_is_full:
+            response = JsonResponse(
+                {
+                    "ok": False,
+                    "error": "bin_full",
+                    "message": (
+                        "The bin is full and ready for collection. "
+                        "Bottle scanning is temporarily unavailable."
+                    ),
+                    "fill_percent": bin_status.fill_percent,
+                },
+                status=409,
+            )
+
+            if created_cookie:
+                _set_uid_cookie(response, uid)
+
+            return response
+
         BottleScan.objects.filter(
             status=BottleScan.WAITING,
             expires_at__lte=now,
@@ -176,8 +213,10 @@ def api_insert_start(request):
                 },
                 status=409,
             )
+
             if created_cookie:
                 _set_uid_cookie(response, uid)
+
             return response
 
         BottleScan.objects.filter(
@@ -202,8 +241,10 @@ def api_insert_start(request):
             "seconds_left": BOTTLE_SCAN_TIMEOUT_SECONDS,
         }
     )
+
     if created_cookie:
         _set_uid_cookie(response, uid)
+
     return response
 
 
@@ -509,6 +550,135 @@ def api_device_ping(request):
         "ok": True,
         "message": "ESP32 reached Django",
     })
+
+@require_GET
+def api_device_scan_status(request):
+    """
+    Let the regular ESP32 read the latest bottle-scanner state.
+
+    Possible display_status values:
+        idle
+        scanning
+        accepted
+        rejected
+        invalid
+        cancelled
+        expired
+    """
+    expected_token = settings.ESP32_API_TOKEN
+
+    provided_token = request.headers.get(
+        "X-Device-Token",
+        "",
+    )
+
+    if (
+        not expected_token
+        or not hmac.compare_digest(
+            provided_token,
+            expected_token,
+        )
+    ):
+        return JsonResponse(
+            {
+                "ok": False,
+                "error": "unauthorized_device",
+            },
+            status=403,
+        )
+
+    scan = (
+        BottleScan.objects
+        .order_by("-started_at")
+        .first()
+    )
+
+    if scan is None:
+        return JsonResponse(
+            {
+                "ok": True,
+                "display_status": "idle",
+                "message": "Insert Bottle",
+                "scan_id": None,
+            }
+        )
+
+    now = timezone.now()
+
+    if (
+        scan.status == BottleScan.WAITING
+        and scan.expires_at <= now
+    ):
+        scan.status = BottleScan.EXPIRED
+        scan.completed_at = now
+        scan.save(
+            update_fields=[
+                "status",
+                "completed_at",
+            ]
+        )
+
+    label_key = (
+        str(scan.label)
+        .strip()
+        .lower()
+        .replace("_", " ")
+        .replace("-", " ")
+    )
+
+    if scan.status == BottleScan.WAITING:
+        display_status = "scanning"
+        message = "Scanning Bottle"
+
+    elif scan.status == BottleScan.ACCEPTED:
+        display_status = "accepted"
+        message = "Bottle Accepted"
+
+    elif (
+        scan.status == BottleScan.REJECTED
+        and label_key == "invalid"
+    ):
+        display_status = "invalid"
+        message = "Invalid Object"
+
+    elif scan.status == BottleScan.REJECTED:
+        display_status = "rejected"
+        message = "Bottle Rejected"
+
+    elif scan.status == BottleScan.CANCELLED:
+        display_status = "cancelled"
+        message = "Scan Cancelled"
+
+    elif scan.status == BottleScan.EXPIRED:
+        display_status = "expired"
+        message = "Scan Timed Out"
+
+    else:
+        display_status = "idle"
+        message = "Insert Bottle"
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "scan_id": scan.id,
+            "display_status": display_status,
+            "message": message,
+            "scan_status": scan.status,
+            "label": scan.label or None,
+            "confidence_percent": (
+                float(scan.confidence_percent)
+                if scan.confidence_percent is not None
+                else None
+            ),
+            "points_awarded": scan.points_awarded,
+            "started_at": scan.started_at.isoformat(),
+            "completed_at": (
+                scan.completed_at.isoformat()
+                if scan.completed_at is not None
+                else None
+            ),
+        }
+    )
 
 @csrf_exempt
 @require_POST

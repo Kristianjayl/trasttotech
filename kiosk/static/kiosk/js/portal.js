@@ -121,7 +121,14 @@
       );
       const data = await response.json();
 
+// Handle known scanner-start errors before beginning portal polling.
+
       if (!response.ok) {
+        if (data.error === 'bin_full') {
+          showBinFullFailure(data.message);
+          return;
+        }
+
         throw new Error(
           data.message || data.error || 'Unable to start scanner'
         );
@@ -272,6 +279,48 @@
         () => closeTray('trayInsert')
       );
     });
+  }
+
+function showBinFullFailure(message){
+    clearInterval(pollHandle);
+
+    document.getElementById('weighCountdown').textContent = '0';
+    document.getElementById('weighBarFill').style.width = '100%';
+    document.getElementById('weighKg').textContent = 'Bin full';
+    document.getElementById('weighActions').style.display = 'none';
+
+    const box = document.getElementById('weighResult');
+    box.style.display = 'block';
+
+    box.innerHTML = `
+      <div
+        class="weigh-hint"
+        style="background:#FBE9E6; color:#9A2E1C;"
+      >
+        <strong>Bin Full</strong><br>
+        ${message}<br>
+        Please wait until the bin has been collected and emptied.
+      </div>
+
+      <button
+        class="cancel-link"
+        data-close="trayInsert"
+      >
+        Close
+      </button>
+    `;
+
+    box.querySelectorAll('[data-close]').forEach(el => {
+      el.addEventListener(
+        'click',
+        () => closeTray('trayInsert')
+      );
+    });
+
+    showToast(
+      'Bin is full—collection required',
+      'error'
+    );
   }
 
   function showScanFailure(message){
