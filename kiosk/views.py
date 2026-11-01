@@ -356,9 +356,18 @@ def api_insert_confirm(request):
         if scan.label
         else False
     )
+    is_dirty_plastic = (
+        scan.label.strip().lower() == "reject"
+        if scan.label
+        else False
+    )
 
     if scan.status == BottleScan.ACCEPTED:
-        condition = Transaction.CLEAN
+        condition = (
+            Transaction.DIRTY
+            if is_dirty_plastic
+            else Transaction.CLEAN
+        )
         pieces = 1
     elif scan.status == BottleScan.REJECTED:
         condition = Transaction.DIRTY

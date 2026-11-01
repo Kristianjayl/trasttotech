@@ -37,11 +37,10 @@ def complete_waiting_scan(
     Save one stable camera result to the oldest
     active portal scan.
 
-    Clean:
-        Accepted and receives points.
-
-    Reject:
-        Rejected bottle and receives zero points.
+    Clean or Reject:
+        A plastic bottle is accepted and receives points.  The current
+        model calls dirty plastic bottles "Reject", so that label is kept
+        compatible while the system records its condition as dirty.
 
     Invalid:
         Rejected invalid object and receives zero points.
@@ -98,7 +97,7 @@ def complete_waiting_scan(
             .get(pk=scan.user_id)
         )
 
-        if label_key == "clean":
+        if label_key in {"clean", "reject"}:
             rate = (
                 BottleRate.objects
                 .order_by("id")
@@ -115,7 +114,11 @@ def complete_waiting_scan(
             )
 
             pieces = 1
-            condition = Transaction.CLEAN
+            condition = (
+                Transaction.CLEAN
+                if label_key == "clean"
+                else Transaction.DIRTY
+            )
             scan.status = BottleScan.ACCEPTED
 
             user.points_balance += points_awarded
@@ -127,13 +130,6 @@ def complete_waiting_scan(
                     "total_pieces",
                 ]
             )
-
-        elif label_key == "reject":
-            # It is a bottle, but it is not acceptable.
-            points_awarded = 0
-            pieces = 1
-            condition = Transaction.DIRTY
-            scan.status = BottleScan.REJECTED
 
         else:
             # Invalid means it is not a valid bottle.

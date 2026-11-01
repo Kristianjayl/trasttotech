@@ -6,9 +6,68 @@ from django.utils import timezone
 
 from .models import (
     BinStatus,
+    BottleRate,
     BottleScan,
     KioskUser,
+    Transaction,
 )
+from .bottle_scans import complete_waiting_scan
+
+
+class PlasticBottleAcceptanceTests(TestCase):
+    def setUp(self):
+        self.user = KioskUser.objects.create(
+            device_id="plastic-bottle-test-user",
+        )
+        BottleRate.objects.create(points_per_bottle=5)
+
+    def start_waiting_scan(self):
+        return BottleScan.objects.create(
+            user=self.user,
+            expires_at=timezone.now() + timedelta(seconds=60),
+        )
+
+    def test_clean_plastic_bottle_is_accepted(self):
+        scan = self.start_waiting_scan()
+
+        result = complete_waiting_scan("Clean", 99.0)
+
+        scan.refresh_from_db()
+        self.user.refresh_from_db()
+        transaction = Transaction.objects.get()
+
+        self.assertEqual(result["status"], BottleScan.ACCEPTED)
+        self.assertEqual(scan.status, BottleScan.ACCEPTED)
+        self.assertEqual(transaction.condition, Transaction.CLEAN)
+        self.assertEqual(self.user.points_balance, 5)
+
+    def test_dirty_plastic_bottle_is_accepted(self):
+        scan = self.start_waiting_scan()
+
+        result = complete_waiting_scan("Reject", 99.0)
+
+        scan.refresh_from_db()
+        self.user.refresh_from_db()
+        transaction = Transaction.objects.get()
+
+        self.assertEqual(result["status"], BottleScan.ACCEPTED)
+        self.assertEqual(scan.status, BottleScan.ACCEPTED)
+        self.assertEqual(transaction.condition, Transaction.DIRTY)
+        self.assertEqual(self.user.points_balance, 5)
+
+    def test_invalid_object_is_still_rejected(self):
+        scan = self.start_waiting_scan()
+
+        result = complete_waiting_scan("Invalid", 99.0)
+
+        scan.refresh_from_db()
+        self.user.refresh_from_db()
+        transaction = Transaction.objects.get()
+
+        self.assertEqual(result["status"], BottleScan.REJECTED)
+        self.assertEqual(scan.status, BottleScan.REJECTED)
+        self.assertEqual(transaction.points_delta, 0)
+        self.assertEqual(self.user.points_balance, 0)
 
 
 class BottleScanBinSafetyTests(TestCase):

@@ -211,12 +211,18 @@
       ? Number(data.confidence_percent).toFixed(2) + '%'
       : '';
 
+    const displayLabel = data.label === 'Reject'
+      ? 'Dirty Plastic Bottle'
+      : data.label === 'Clean'
+        ? 'Clean Plastic Bottle'
+        : data.label;
+
     if (data.status === 'accepted') {
       const canVoucher = data.new_balance >= VOUCHER_MIN_POINTS;
       box.innerHTML = `
         <div class="weigh-hint" style="background:#E7F7EA; color:#1F6B33;">
           <strong>Bottle Accepted</strong><br>
-          ${data.label}${confidence ? ` — ${confidence}` : ''}<br>
+          ${displayLabel}${confidence ? ` — ${confidence}` : ''}<br>
           +${data.points_awarded} points. Balance: ${data.new_balance} pts.
         </div>
 
@@ -442,24 +448,30 @@ function showBinFullFailure(message){
         throw new Error(result.error || 'Classification failed');
       }
 
-      const decision = result.is_clean
-        ? 'Bottle Accepted'
+      const isAccepted = result.is_accepted;
+      const displayLabel = result.label === 'Reject'
+        ? 'Dirty Plastic Bottle'
+        : result.label === 'Clean'
+          ? 'Clean Plastic Bottle'
+          : result.label;
+      const decision = isAccepted
+        ? 'Plastic Bottle Accepted'
         : 'Bottle Rejected';
 
       classifierResult.className =
         'classifier-result show ' +
-        (result.is_clean ? 'accepted' : 'rejected');
+        (isAccepted ? 'accepted' : 'rejected');
 
       classifierResult.innerHTML = `
         <strong>${decision}</strong>
         <span>
-          ${result.label} — ${result.confidence_percent.toFixed(2)}%
+          ${displayLabel} — ${result.confidence_percent.toFixed(2)}%
         </span>
       `;
 
       showToast(
         decision,
-        result.is_clean ? 'success' : 'error'
+        isAccepted ? 'success' : 'error'
       );
     }
     catch (error) {

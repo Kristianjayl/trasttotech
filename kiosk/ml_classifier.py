@@ -12,6 +12,7 @@ MODEL_PATH = MODEL_FOLDER / "model_unquant.tflite"
 LABELS_PATH = MODEL_FOLDER / "labels.txt"
 
 CLEAN_CONFIDENCE_MINIMUM = 0.80
+PLASTIC_BOTTLE_LABELS = {"clean", "reject"}
 
 
 @lru_cache(maxsize=1)
@@ -108,6 +109,10 @@ def classify_bottle(image_source):
     label = labels[best_index]
     confidence = float(predictions[best_index])
 
+    is_accepted = (
+        label.lower() in PLASTIC_BOTTLE_LABELS
+        and confidence >= CLEAN_CONFIDENCE_MINIMUM
+    )
     is_clean = (
         label.lower() == "clean"
         and confidence >= CLEAN_CONFIDENCE_MINIMUM
@@ -123,6 +128,7 @@ def classify_bottle(image_source):
     return {
         "label": label,
         "confidence_percent": confidence_percent,
+        "is_accepted": is_accepted,
         "is_clean": is_clean,
         "scores_percent": scores_percent,
     }

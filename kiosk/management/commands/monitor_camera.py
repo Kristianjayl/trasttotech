@@ -106,8 +106,8 @@ class Command(BaseCommand):
                             event_message = "EVENT: CLEAN BOTTLE"
                             event_style = self.style.SUCCESS
                         elif label_key == "reject":
-                            event_message = "EVENT: REJECTED BOTTLE"
-                            event_style = self.style.WARNING
+                            event_message = "EVENT: DIRTY PLASTIC BOTTLE"
+                            event_style = self.style.SUCCESS
                         else:
                             event_message = "EVENT: INVALID OBJECT"
                             event_style = self.style.WARNING
