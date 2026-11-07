@@ -161,3 +161,24 @@ class BottleScan(models.Model):
             f"{self.status}"
         )
 
+
+## For the metal sensor, we track whether metal is detected and the light value 
+# (which is used to determine if the sensor is covered or uncovered). 
+# This is used to detect if a user has placed a bottle in the bin.
+
+class MetalStatus(models.Model):
+    device_id = models.CharField(
+        max_length=64,
+        unique=True,
+        default="main-metal-sensor",
+    )
+    metal_detected = models.BooleanField(default=False)
+    light_value = models.PositiveSmallIntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name_plural = "Metal statuses"
+
+    def __str__(self):
+        state = "detected" if self.metal_detected else "clear"
+        return f"{self.device_id}: {state}"

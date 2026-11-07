@@ -32,4 +32,9 @@ urlpatterns = [
     views.api_bin_status,
     name="api_bin_status",
     ),
+    path(
+        "api/device/metal-status/",
+        views.api_metal_status,
+        name="api_metal_status",
+    ),
 ]

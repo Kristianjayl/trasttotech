@@ -9,6 +9,7 @@ from .models import (
     BottleRate,
     BottleScan,
     KioskUser,
+    MetalStatus,
     Transaction,
 )
 from .bottle_scans import complete_waiting_scan
@@ -240,3 +241,46 @@ class BinStatusApiTests(TestCase):
 
         self.assertEqual(response.status_code, 403)
         self.assertFalse(BinStatus.objects.exists())
+
+@override_settings(ESP32_API_TOKEN="test-device-token")
+class MetalStatusApiTests(TestCase):
+    url = "/api/device/metal-status/"
+
+    def post_status(self, body, token="test-device-token"):
+        return self.client.post(
+            self.url,
+            data=json.dumps(body),
+            content_type="application/json",
+            HTTP_X_DEVICE_TOKEN=token,
+            HTTP_HOST="localhost",
+        )
+
+    def test_saves_detected_metal_status(self):
+        response = self.post_status({
+            "device_id": "main-metal-sensor",
+            "metal_detected": True,
+            "light_value": 2000,
+        })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["metal_detected"])
+        self.assertEqual(response.json()["light_value"], 2000)
+
+        saved = MetalStatus.objects.get(
+            device_id="main-metal-sensor",
+        )
+        self.assertTrue(saved.metal_detected)
+        self.assertEqual(saved.light_value, 2000)
+
+    def test_rejects_wrong_device_token(self):
+        response = self.post_status(
+            {
+                "device_id": "main-metal-sensor",
+                "metal_detected": True,
+                "light_value": 2000,
+            },
+            token="wrong-token",
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(MetalStatus.objects.exists())

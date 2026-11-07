@@ -19,6 +19,7 @@ from .models import (
     Voucher,
     BinStatus,
     BottleScan,
+    MetalStatus,
 )
 
 COOKIE_NAME = "kiosk_uid"
@@ -803,3 +804,87 @@ def api_bin_status(request):
         }[bin_status.fill_percent],
         "updated_at": bin_status.updated_at.isoformat(),
     })
+
+@csrf_exempt
+@require_POST
+def api_metal_status(request):
+    expected_token = settings.ESP32_API_TOKEN
+    provided_token = request.headers.get(
+        "X-Device-Token",
+        "",
+    )
+
+    if (
+        not expected_token
+        or not hmac.compare_digest(
+            provided_token,
+            expected_token,
+        )
+    ):
+        return JsonResponse(
+            {
+                "ok": False,
+                "error": "unauthorized_device",
+            },
+            status=403,
+        )
+
+    try:
+        body = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse(
+            {
+                "ok": False,
+                "error": "invalid_json",
+            },
+            status=400,
+        )
+
+    metal_detected = body.get("metal_detected")
+    light_value = body.get("light_value")
+
+    if not isinstance(metal_detected, bool):
+        return JsonResponse(
+            {
+                "ok": False,
+                "error": "metal_detected_must_be_boolean",
+            },
+            status=400,
+        )
+
+    if (
+        isinstance(light_value, bool)
+        or not isinstance(light_value, int)
+        or not 0 <= light_value <= 4095
+    ):
+        return JsonResponse(
+            {
+                "ok": False,
+                "error": "invalid_light_value",
+            },
+            status=400,
+        )
+
+    device_id = (
+        str(body.get("device_id") or "main-metal-sensor")
+        .strip()[:64]
+        or "main-metal-sensor"
+    )
+
+    metal_status, _ = MetalStatus.objects.update_or_create(
+        device_id=device_id,
+        defaults={
+            "metal_detected": metal_detected,
+            "light_value": light_value,
+        },
+    )
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "device_id": metal_status.device_id,
+            "metal_detected": metal_status.metal_detected,
+            "light_value": metal_status.light_value,
+            "updated_at": metal_status.updated_at.isoformat(),
+        }
+    )
