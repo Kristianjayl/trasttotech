@@ -30,6 +30,13 @@ class BottleRate(models.Model):
 
     def __str__(self):
         return f"{self.points_per_bottle} pts per bottle"
+    
+# configurable reward for each accepted tin can
+class TinCanRate(models.Model):
+    points_per_tin_can = models.IntegerField(default=10)
+
+    def __str__(self):
+        return f"{self.points_per_tin_can} pts per tin can"
 
 
 # this is a record of a rate for redeeming wifi minutes for points
@@ -175,6 +182,10 @@ class MetalStatus(models.Model):
     metal_detected = models.BooleanField(default=False)
     light_value = models.PositiveSmallIntegerField(default=0)
     updated_at = models.DateTimeField(auto_now=True)
+    last_detected_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
 
     class Meta:
         verbose_name_plural = "Metal statuses"

@@ -10,8 +10,10 @@ from .models import (
     BottleScan,
     KioskUser,
     MetalStatus,
+    TinCanRate,
     Transaction,
 )
+
 from .bottle_scans import complete_waiting_scan
 
 
@@ -28,10 +30,13 @@ class PlasticBottleAcceptanceTests(TestCase):
             expires_at=timezone.now() + timedelta(seconds=60),
         )
 
-    def test_clean_plastic_bottle_is_accepted(self):
+    def test_plastic_bottle_is_accepted(self):
         scan = self.start_waiting_scan()
 
-        result = complete_waiting_scan("Clean", 99.0)
+        result = complete_waiting_scan(
+            "plastic_bottle",
+            99.0,
+        )
 
         scan.refresh_from_db()
         self.user.refresh_from_db()
@@ -40,12 +45,26 @@ class PlasticBottleAcceptanceTests(TestCase):
         self.assertEqual(result["status"], BottleScan.ACCEPTED)
         self.assertEqual(scan.status, BottleScan.ACCEPTED)
         self.assertEqual(transaction.condition, Transaction.CLEAN)
+        self.assertEqual(transaction.points_delta, 5)
         self.assertEqual(self.user.points_balance, 5)
 
-    def test_dirty_plastic_bottle_is_accepted(self):
+    def test_tin_can_is_accepted_after_recent_metal_detection(self):
+        TinCanRate.objects.create(
+            points_per_tin_can=10,
+        )
+        MetalStatus.objects.create(
+            device_id="main-metal-sensor",
+            metal_detected=True,
+            light_value=800,
+            last_detected_at=timezone.now(),
+        )
+
         scan = self.start_waiting_scan()
 
-        result = complete_waiting_scan("Reject", 99.0)
+        result = complete_waiting_scan(
+            "tin_can",
+            99.0,
+        )
 
         scan.refresh_from_db()
         self.user.refresh_from_db()
@@ -53,13 +72,75 @@ class PlasticBottleAcceptanceTests(TestCase):
 
         self.assertEqual(result["status"], BottleScan.ACCEPTED)
         self.assertEqual(scan.status, BottleScan.ACCEPTED)
-        self.assertEqual(transaction.condition, Transaction.DIRTY)
-        self.assertEqual(self.user.points_balance, 5)
+        self.assertEqual(transaction.condition, Transaction.CLEAN)
+        self.assertEqual(transaction.points_delta, 10)
+        self.assertEqual(transaction.pieces, 1)
+        self.assertEqual(self.user.points_balance, 10)
 
-    def test_invalid_object_is_still_rejected(self):
+    def test_tin_can_is_rejected_without_recent_metal_detection(self):
+        TinCanRate.objects.create(
+            points_per_tin_can=10,
+        )
+        MetalStatus.objects.create(
+            device_id="main-metal-sensor",
+            metal_detected=False,
+            light_value=0,
+            last_detected_at=None,
+        )
+
         scan = self.start_waiting_scan()
 
-        result = complete_waiting_scan("Invalid", 99.0)
+        result = complete_waiting_scan(
+            "tin_can",
+            99.0,
+        )
+
+        scan.refresh_from_db()
+        self.user.refresh_from_db()
+        transaction = Transaction.objects.get()
+
+        self.assertEqual(result["status"], BottleScan.REJECTED)
+        self.assertEqual(scan.status, BottleScan.REJECTED)
+        self.assertEqual(transaction.condition, Transaction.DIRTY)
+        self.assertEqual(transaction.points_delta, 0)
+        self.assertEqual(transaction.pieces, 0)
+        self.assertEqual(self.user.points_balance, 0)
+
+    def test_tin_can_is_rejected_when_metal_detection_is_stale(self):
+        TinCanRate.objects.create(
+            points_per_tin_can=10,
+        )
+        MetalStatus.objects.create(
+            device_id="main-metal-sensor",
+            metal_detected=True,
+            light_value=800,
+            last_detected_at=(
+                timezone.now() - timedelta(seconds=11)
+            ),
+        )
+
+        scan = self.start_waiting_scan()
+
+        result = complete_waiting_scan(
+            "tin_can",
+            99.0,
+        )
+
+        scan.refresh_from_db()
+        transaction = Transaction.objects.get()
+
+        self.assertEqual(result["status"], BottleScan.REJECTED)
+        self.assertEqual(scan.status, BottleScan.REJECTED)
+        self.assertEqual(transaction.points_delta, 0)
+        self.assertEqual(transaction.pieces, 0)
+
+    def test_other_object_is_rejected(self):
+        scan = self.start_waiting_scan()
+
+        result = complete_waiting_scan(
+            "other_object",
+            99.0,
+        )
 
         scan.refresh_from_db()
         self.user.refresh_from_db()
@@ -68,6 +149,7 @@ class PlasticBottleAcceptanceTests(TestCase):
         self.assertEqual(result["status"], BottleScan.REJECTED)
         self.assertEqual(scan.status, BottleScan.REJECTED)
         self.assertEqual(transaction.points_delta, 0)
+        self.assertEqual(transaction.pieces, 0)
         self.assertEqual(self.user.points_balance, 0)
 
 

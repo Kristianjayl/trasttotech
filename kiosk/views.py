@@ -309,7 +309,12 @@ def api_insert_poll(request):
             "points_awarded": scan.points_awarded,
             "new_balance": user.points_balance,
             "is_invalid": (
-                scan.label.strip().lower() == "invalid"
+                (
+                    scan.label.strip()
+                    .lower()
+                    .replace("_", " ")
+                    .replace("-", " ")
+                ) == "other object"
                 if scan.label
                 else False
             ),
@@ -352,27 +357,24 @@ def api_insert_confirm(request):
     user.refresh_from_db(
         fields=["points_balance", "total_pieces"]
     )
-    is_invalid = (
-        scan.label.strip().lower() == "invalid"
-        if scan.label
-        else False
-    )
-    is_dirty_plastic = (
-        scan.label.strip().lower() == "reject"
-        if scan.label
-        else False
+    label_key = (
+        (scan.label or "")
+        .strip()
+        .lower()
+        .replace("_", " ")
+        .replace("-", " ")
     )
 
+    is_invalid = label_key == "other object"
+
     if scan.status == BottleScan.ACCEPTED:
-        condition = (
-            Transaction.DIRTY
-            if is_dirty_plastic
-            else Transaction.CLEAN
-        )
+        # Both plastic bottles and verified tin cans are accepted.
+        condition = Transaction.CLEAN
         pieces = 1
     elif scan.status == BottleScan.REJECTED:
+        # Other objects, or a tin can without recent metal detection.
         condition = Transaction.DIRTY
-        pieces = 0 if is_invalid else 1
+        pieces = 0
     else:
         condition = None
         pieces = 0
@@ -638,22 +640,36 @@ def api_device_scan_status(request):
 
     if scan.status == BottleScan.WAITING:
         display_status = "scanning"
-        message = "Scanning Bottle"
+        message = "Scanning Item"
 
     elif scan.status == BottleScan.ACCEPTED:
         display_status = "accepted"
-        message = "Bottle Accepted"
+
+        label_key = (
+            (scan.label or "")
+            .strip()
+            .lower()
+            .replace("_", " ")
+            .replace("-", " ")
+        )
+
+        if label_key == "plastic bottle":
+            message = "Plastic Bottle Accepted"
+        elif label_key == "tin can":
+            message = "Tin Can Accepted"
+        else:
+            message = "Item Accepted"
 
     elif (
         scan.status == BottleScan.REJECTED
-        and label_key == "invalid"
+        and label_key == "other object"
     ):
         display_status = "invalid"
-        message = "Invalid Object"
+        message = "Other Object Rejected"
 
     elif scan.status == BottleScan.REJECTED:
         display_status = "rejected"
-        message = "Bottle Rejected"
+        message = "Item Rejected"
 
     elif scan.status == BottleScan.CANCELLED:
         display_status = "cancelled"
@@ -871,12 +887,17 @@ def api_metal_status(request):
         or "main-metal-sensor"
     )
 
+    status_defaults = {
+        "metal_detected": metal_detected,
+        "light_value": light_value,
+    }
+
+    if metal_detected:
+        status_defaults["last_detected_at"] = timezone.now()
+
     metal_status, _ = MetalStatus.objects.update_or_create(
         device_id=device_id,
-        defaults={
-            "metal_detected": metal_detected,
-            "light_value": light_value,
-        },
+        defaults=status_defaults,
     )
 
     return JsonResponse(

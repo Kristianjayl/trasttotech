@@ -1,3 +1,4 @@
+from datetime import timedelta
 from decimal import Decimal, ROUND_HALF_UP
 
 from django.db import transaction
@@ -7,6 +8,8 @@ from .models import (
     BottleRate,
     BottleScan,
     KioskUser,
+    MetalStatus,
+    TinCanRate,
     Transaction,
 )
 
@@ -16,9 +19,9 @@ def normalize_bottle_label(label):
     Convert model labels to a consistent format.
 
     Examples:
-    Clean      -> clean
-    No Bottle  -> no bottle
-    no_bottle  -> no bottle
+    Plastic_Bottle -> plastic bottle
+    Tin Can        -> tin can
+    No_Item        -> no item
     """
     return (
         str(label)
@@ -34,26 +37,27 @@ def complete_waiting_scan(
     confidence_percent,
 ):
     """
-    Save one stable camera result to the oldest
-    active portal scan.
+    Save one stable camera result to the oldest active portal scan.
 
-    Clean or Reject:
-        A plastic bottle is accepted and receives points.  The current
-        model calls dirty plastic bottles "Reject", so that label is kept
-        compatible while the system records its condition as dirty.
+    Plastic Bottle:
+        Accepted and earns bottle points.
 
-    Invalid:
-        Rejected invalid object and receives zero points.
+    Tin Can:
+        Accepted and earns tin-can points only when the metal detector
+        reported metal within the last 10 seconds.
 
-    No Bottle:
-        Does not complete the scan.
+    Other Object:
+        Rejected and earns zero points.
+
+    No Item:
+        Does not complete a scan.
     """
     label_key = normalize_bottle_label(label)
 
     if label_key not in {
-        "clean",
-        "reject",
-        "invalid",
+        "plastic bottle",
+        "tin can",
+        "other object",
     }:
         return None
 
@@ -67,7 +71,6 @@ def complete_waiting_scan(
     )
 
     with transaction.atomic():
-        # Close waiting scans whose time has ended.
         BottleScan.objects.filter(
             status=BottleScan.WAITING,
             expires_at__lte=now,
@@ -76,7 +79,6 @@ def complete_waiting_scan(
             completed_at=now,
         )
 
-        # Find the oldest scan that is still waiting.
         scan = (
             BottleScan.objects
             .select_for_update()
@@ -97,7 +99,7 @@ def complete_waiting_scan(
             .get(pk=scan.user_id)
         )
 
-        if label_key in {"clean", "reject"}:
+        if label_key == "plastic bottle":
             rate = (
                 BottleRate.objects
                 .order_by("id")
@@ -109,16 +111,9 @@ def complete_waiting_scan(
                     "Bottle rate is not configured."
                 )
 
-            points_awarded = (
-                rate.points_per_bottle
-            )
-
+            points_awarded = rate.points_per_bottle
             pieces = 1
-            condition = (
-                Transaction.CLEAN
-                if label_key == "clean"
-                else Transaction.DIRTY
-            )
+            condition = Transaction.CLEAN
             scan.status = BottleScan.ACCEPTED
 
             user.points_balance += points_awarded
@@ -131,8 +126,50 @@ def complete_waiting_scan(
                 ]
             )
 
+        elif label_key == "tin can":
+            metal_recently_detected = (
+                MetalStatus.objects.filter(
+                    device_id="main-metal-sensor",
+                    last_detected_at__gte=(
+                        now - timedelta(seconds=10)
+                    ),
+                ).exists()
+            )
+
+            if metal_recently_detected:
+                rate = (
+                    TinCanRate.objects
+                    .order_by("id")
+                    .first()
+                )
+
+                if rate is None:
+                    raise RuntimeError(
+                        "Tin-can rate is not configured."
+                    )
+
+                points_awarded = rate.points_per_tin_can
+                pieces = 1
+                condition = Transaction.CLEAN
+                scan.status = BottleScan.ACCEPTED
+
+                user.points_balance += points_awarded
+                user.total_pieces += 1
+
+                user.save(
+                    update_fields=[
+                        "points_balance",
+                        "total_pieces",
+                    ]
+                )
+            else:
+                points_awarded = 0
+                pieces = 0
+                condition = Transaction.DIRTY
+                scan.status = BottleScan.REJECTED
+
         else:
-            # Invalid means it is not a valid bottle.
+            # other object
             points_awarded = 0
             pieces = 0
             condition = Transaction.DIRTY
@@ -172,6 +209,6 @@ def complete_waiting_scan(
             "points_awarded": points_awarded,
             "new_balance": user.points_balance,
             "is_invalid": (
-                label_key == "invalid"
+                label_key == "other object"
             ),
         }

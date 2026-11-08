@@ -24,7 +24,7 @@ def normalize_label(label):
 class Command(BaseCommand):
     help = (
         "Continuously monitor the ESP32-CAM "
-        "for bottle events."
+        "for recycling events."
     )
 
     def handle(self, *args, **options):
@@ -89,7 +89,7 @@ class Command(BaseCommand):
                 )
 
                 if candidate_count >= stable_frames_required:
-                    if label_key == "no bottle":
+                    if label_key == "no item":
                         if bottle_locked:
                             self.stdout.write(
                                 self.style.SUCCESS(
@@ -99,17 +99,21 @@ class Command(BaseCommand):
                         bottle_locked = False
 
                     elif (
-                        label_key in {"clean", "reject", "invalid"}
+                        label_key in {
+                            "plastic bottle",
+                            "tin can",
+                            "other object",
+                        }
                         and not bottle_locked
                     ):
-                        if label_key == "clean":
-                            event_message = "EVENT: CLEAN BOTTLE"
+                        if label_key == "plastic bottle":
+                            event_message = "EVENT: PLASTIC BOTTLE"
                             event_style = self.style.SUCCESS
-                        elif label_key == "reject":
-                            event_message = "EVENT: DIRTY PLASTIC BOTTLE"
+                        elif label_key == "tin can":
+                            event_message = "EVENT: TIN CAN"
                             event_style = self.style.SUCCESS
                         else:
-                            event_message = "EVENT: INVALID OBJECT"
+                            event_message = "EVENT: OTHER OBJECT"
                             event_style = self.style.WARNING
 
                         self.stdout.write(
@@ -141,13 +145,16 @@ class Command(BaseCommand):
                                     "Waiting for the portal to start one."
                                 )
                             )
-                            # Do not lock the camera when nothing was saved.
-                            # This lets a portal scan that starts while the
-                            # object is still visible claim that object.
                             bottle_locked = False
                         else:
+                            saved_style = (
+                                self.style.SUCCESS
+                                if saved_result["status"] == "accepted"
+                                else self.style.WARNING
+                            )
+
                             self.stdout.write(
-                                self.style.SUCCESS(
+                                saved_style(
                                     "SAVED: "
                                     f"{saved_result['label']} | "
                                     f"{saved_result['status']} | "
@@ -156,8 +163,7 @@ class Command(BaseCommand):
                                     f"{saved_result['new_balance']}"
                                 )
                             )
-                            # Lock only after a database scan was completed,
-                            # preventing one bottle from earning points twice.
+
                             bottle_locked = True
                             self.stdout.write(
                                 "Waiting for the object to be removed..."
