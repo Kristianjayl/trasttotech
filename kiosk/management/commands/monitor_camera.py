@@ -38,7 +38,7 @@ class Command(BaseCommand):
 
         self.stdout.write(
             self.style.SUCCESS(
-                "TrashToTech camera monitor started."
+                "EcoLink camera monitor started."
             )
         )
         self.stdout.write("Press Ctrl+C to stop.")
@@ -181,4 +181,4 @@ class Command(BaseCommand):
                 )
             )
 
-            
+

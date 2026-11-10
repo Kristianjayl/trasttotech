@@ -434,7 +434,7 @@ def bin_status_live(request):
 @login_required
 @require_GET
 def bottle_scan_live(request):
-    """Return the newest bottle scanner state for the live dashboard."""
+    """Return the newest item-scanner state for the live dashboard."""
     scan = (
         BottleScan.objects
         .select_related("user")

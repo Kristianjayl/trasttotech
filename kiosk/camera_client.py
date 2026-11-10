@@ -25,7 +25,7 @@ def capture_camera_frame():
     request = Request(
         camera_url,
         headers={
-            "User-Agent": "TrashToTech-Django/1.0",
+            "User-Agent": "EcoLink-Django/1.0",
         },
     )
 

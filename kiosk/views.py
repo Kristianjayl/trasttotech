@@ -229,7 +229,7 @@ def api_insert_start(request):
                     "ok": False,
                     "error": "scanner_busy",
                     "message": (
-                        "The bottle scanner is currently "
+                        "The item scanner is currently "
                         "being used by another user."
                     ),
                 },
@@ -637,7 +637,7 @@ def api_device_scan_status(request):
             {
                 "ok": True,
                 "display_status": "idle",
-                "message": "Insert Bottle",
+                "message": "Insert Item",
                 "scan_id": None,
             }
         )
@@ -732,7 +732,7 @@ def api_device_scan_status(request):
 
     else:
         display_status = "idle"
-        message = "Insert Bottle"
+        message = "Insert Item"
 
     return JsonResponse(
         {
