@@ -45,12 +45,96 @@ class PlasticBottleAcceptanceTests(TestCase):
         self.assertEqual(result["status"], BottleScan.ACCEPTED)
         self.assertEqual(scan.status, BottleScan.ACCEPTED)
         self.assertEqual(transaction.condition, Transaction.CLEAN)
+        # test_plastic_bottle_is_accepted
+        self.assertEqual(
+            transaction.item_type,
+            Transaction.PLASTIC_BOTTLE,
+        )
         self.assertEqual(transaction.points_delta, 5)
         self.assertEqual(self.user.points_balance, 5)
 
+    def test_plastic_bottle_is_rejected_when_plastic_bin_is_full(self):
+        BinStatus.objects.create(
+            device_id="plastic-bin",
+            fill_percent=BinStatus.FULL,
+            is_full=True,
+        )
+
+        scan = self.start_waiting_scan()
+
+        result = complete_waiting_scan(
+            "plastic_bottle",
+            99.0,
+        )
+
+        scan.refresh_from_db()
+        self.user.refresh_from_db()
+        transaction = Transaction.objects.get()
+
+        self.assertEqual(result["status"], BottleScan.REJECTED)
+        self.assertEqual(
+            result["rejection_reason"],
+            BottleScan.PLASTIC_BIN_FULL,
+        )
+        self.assertEqual(
+            scan.rejection_reason,
+            BottleScan.PLASTIC_BIN_FULL,
+        )
+        self.assertEqual(transaction.points_delta, 0)
+        self.assertEqual(transaction.pieces, 0)
+        self.assertEqual(
+            transaction.item_type,
+            Transaction.PLASTIC_BOTTLE,
+        )
+        self.assertEqual(self.user.points_balance, 0)
+
+    def test_tin_can_is_rejected_when_tin_can_bin_is_full(self):
+        TinCanRate.objects.create(
+            points_per_tin_can=5,
+        )
+        MetalStatus.objects.create(
+            device_id="main-metal-sensor",
+            metal_detected=True,
+            light_value=800,
+            last_detected_at=timezone.now(),
+        )
+        BinStatus.objects.create(
+            device_id="tin-can-bin",
+            fill_percent=BinStatus.FULL,
+            is_full=True,
+        )
+
+        scan = self.start_waiting_scan()
+
+        result = complete_waiting_scan(
+            "tin_can",
+            99.0,
+        )
+
+        scan.refresh_from_db()
+        self.user.refresh_from_db()
+        transaction = Transaction.objects.get()
+
+        self.assertEqual(result["status"], BottleScan.REJECTED)
+        self.assertEqual(
+            result["rejection_reason"],
+            BottleScan.TIN_CAN_BIN_FULL,
+        )
+        self.assertEqual(
+            scan.rejection_reason,
+            BottleScan.TIN_CAN_BIN_FULL,
+        )
+        self.assertEqual(transaction.points_delta, 0)
+        self.assertEqual(transaction.pieces, 0)
+        self.assertEqual(
+            transaction.item_type,
+            Transaction.TIN_CAN,
+        )
+        self.assertEqual(self.user.points_balance, 0)
+
     def test_tin_can_is_accepted_after_recent_metal_detection(self):
         TinCanRate.objects.create(
-            points_per_tin_can=10,
+            points_per_tin_can=5,
         )
         MetalStatus.objects.create(
             device_id="main-metal-sensor",
@@ -73,13 +157,19 @@ class PlasticBottleAcceptanceTests(TestCase):
         self.assertEqual(result["status"], BottleScan.ACCEPTED)
         self.assertEqual(scan.status, BottleScan.ACCEPTED)
         self.assertEqual(transaction.condition, Transaction.CLEAN)
-        self.assertEqual(transaction.points_delta, 10)
+        # test_tin_can_is_accepted_after_recent_metal_detection
+        self.assertEqual(
+            transaction.item_type,
+            Transaction.TIN_CAN,
+        )
+
+        self.assertEqual(transaction.points_delta, 5)
         self.assertEqual(transaction.pieces, 1)
-        self.assertEqual(self.user.points_balance, 10)
+        self.assertEqual(self.user.points_balance, 5)
 
     def test_tin_can_is_rejected_without_recent_metal_detection(self):
         TinCanRate.objects.create(
-            points_per_tin_can=10,
+            points_per_tin_can=5,
         )
         MetalStatus.objects.create(
             device_id="main-metal-sensor",
@@ -102,6 +192,11 @@ class PlasticBottleAcceptanceTests(TestCase):
         self.assertEqual(result["status"], BottleScan.REJECTED)
         self.assertEqual(scan.status, BottleScan.REJECTED)
         self.assertEqual(transaction.condition, Transaction.DIRTY)
+        # test_tin_can_is_rejected_without_recent_metal_detection
+        self.assertEqual(
+            transaction.item_type,
+            Transaction.TIN_CAN,
+        )
         self.assertEqual(transaction.points_delta, 0)
         self.assertEqual(transaction.pieces, 0)
         self.assertEqual(self.user.points_balance, 0)
@@ -133,6 +228,11 @@ class PlasticBottleAcceptanceTests(TestCase):
         self.assertEqual(scan.status, BottleScan.REJECTED)
         self.assertEqual(transaction.points_delta, 0)
         self.assertEqual(transaction.pieces, 0)
+        # test_tin_can_is_rejected_when_metal_detection_is_stale
+        self.assertEqual(
+            transaction.item_type,
+            Transaction.TIN_CAN,
+        )
 
     def test_other_object_is_rejected(self):
         scan = self.start_waiting_scan()
@@ -150,23 +250,33 @@ class PlasticBottleAcceptanceTests(TestCase):
         self.assertEqual(scan.status, BottleScan.REJECTED)
         self.assertEqual(transaction.points_delta, 0)
         self.assertEqual(transaction.pieces, 0)
+        # test_other_object_is_rejected
+        self.assertEqual(
+            transaction.item_type,
+            Transaction.OTHER_OBJECT,
+        )
         self.assertEqual(self.user.points_balance, 0)
 
 
 class BottleScanBinSafetyTests(TestCase):
     url = "/api/insert/start/"
 
-    def set_bin_level(self, fill_percent):
+    def set_bin_full(self, device_id, is_full):
         return BinStatus.objects.update_or_create(
-            device_id="main-bin",
+            device_id=device_id,
             defaults={
-                "fill_percent": fill_percent,
-                "is_full": fill_percent == BinStatus.FULL,
+                "fill_percent": (
+                    BinStatus.FULL
+                    if is_full
+                    else BinStatus.EMPTY
+                ),
+                "is_full": is_full,
             },
         )[0]
 
-    def test_full_bin_blocks_new_scan(self):
-        self.set_bin_level(BinStatus.FULL)
+    def test_both_full_bins_block_new_scan(self):
+        self.set_bin_full("plastic-bin", True)
+        self.set_bin_full("tin-can-bin", True)
 
         response = self.client.post(self.url)
 
@@ -176,40 +286,27 @@ class BottleScanBinSafetyTests(TestCase):
             "bin_full",
         )
         self.assertEqual(
-            response.json()["fill_percent"],
-            100,
-        )
-        self.assertEqual(
             BottleScan.objects.count(),
             0,
         )
 
-    def test_non_full_levels_allow_scan(self):
-        for level in (
-            BinStatus.EMPTY,
-            BinStatus.LOW,
-            BinStatus.HALF,
-        ):
-            with self.subTest(fill_percent=level):
-                BottleScan.objects.all().delete()
-                self.set_bin_level(level)
+    def test_one_full_bin_allows_new_scan(self):
+        self.set_bin_full("plastic-bin", True)
+        self.set_bin_full("tin-can-bin", False)
 
-                response = self.client.post(self.url)
+        response = self.client.post(self.url)
 
-                self.assertEqual(
-                    response.status_code,
-                    200,
-                )
-                self.assertEqual(
-                    response.json()["status"],
-                    BottleScan.WAITING,
-                )
-                self.assertEqual(
-                    BottleScan.objects.count(),
-                    1,
-                )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json()["status"],
+            BottleScan.WAITING,
+        )
+        self.assertEqual(
+            BottleScan.objects.count(),
+            1,
+        )
 
-    def test_full_bin_does_not_cancel_existing_scan(self):
+    def test_full_bins_do_not_cancel_existing_scan(self):
         user = KioskUser.objects.create(
             device_id="existing-scan-user",
         )
@@ -227,7 +324,8 @@ class BottleScanBinSafetyTests(TestCase):
             ),
         )
 
-        self.set_bin_level(BinStatus.FULL)
+        self.set_bin_full("plastic-bin", True)
+        self.set_bin_full("tin-can-bin", True)
 
         response = self.client.post(self.url)
 

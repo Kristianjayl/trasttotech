@@ -1,17 +1,32 @@
 {% extends "adminpanel/base.html" %}
 {% block title %}Rates{% endblock %}
 {% block page_title %}Rates{% endblock %}
-{% block page_sub %}Points-per-bottle and points-to-WiFi-time conversion{% endblock %}
+{% block page_sub %}Points for recyclable items and points-to-WiFi-time conversion{% endblock %}
 
 {% block content %}
 <form method="post">
   {% csrf_token %}
   <div class="grid cols-2">
     <div class="card">
-      <h3 style="margin-bottom:14px;">Points per bottle</h3>
+      <h3 style="margin-bottom:14px;">Plastic Bottle Points</h3>
       <div class="field-wrap">
-        <label class="field">Points awarded per bottle</label>
-        <input type="number" name="points_per_bottle" value="{{ bottle_rate.points_per_bottle }}">
+        <label class="field">Points awarded per plastic bottle</label>
+        <input
+          type="number"
+          name="points_per_bottle"
+          value="{{ bottle_rate.points_per_bottle }}"
+        >
+      </div>
+    </div>
+    <div class="card">
+      <h3 style="margin-bottom:14px;">Tin Can Points</h3>
+      <div class="field-wrap">
+        <label class="field">Points awarded per tin can</label>
+        <input
+          type="number"
+          name="points_per_tin_can"
+          value="{{ tin_can_rate.points_per_tin_can }}"
+        >
       </div>
     </div>
     <div class="card">

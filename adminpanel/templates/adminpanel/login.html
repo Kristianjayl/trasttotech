@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>TrashToTech — Staff Login</title>
+<title>EcoLink — Staff Login</title>
 <style>
   body{ font-family: sans-serif; background:#1F2A24; color:#fff; display:flex; align-items:center; justify-content:center; height:100vh; margin:0; }
   form{ background:#2A3830; padding:32px; border-radius:12px; width:280px; }
@@ -14,7 +14,7 @@
 <body>
   <form method="post">
     {% csrf_token %}
-    <h2>TrashToTech Admin</h2>
+    <h2>EcoLink Admin</h2>
     {{ form.username.label_tag }} {{ form.username }}
     {{ form.password.label_tag }} {{ form.password }}
     <button type="submit">Log In</button>

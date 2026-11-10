@@ -4,14 +4,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TrashToTech &mdash; Home Vendo</title>
+  <title>EcoLink &mdash; Home Vendo</title>
   <link rel="stylesheet" href="{% static 'kiosk/css/portal.css' %}">
 </head>
 <body>
 
 <div class="machine">
   <header class="plate">
-    <div class="brand">Trash<span>To</span>Tech</div>
+    <div class="brand">EcoLink</div>
     <div class="model">HOME VENDO &mdash; UNIT 01</div>
   </header>
 
@@ -48,17 +48,17 @@
 
       <div class="status-help">
         <strong>How it works</strong>
-        <span>Insert a clean plastic bottle, earn points, then redeem WiFi time.</span>
+        <span>Insert plastic bottles or tin cans, earn points, then redeem WiFi time.</span>
       </div>
     </section>
 
     <section class="controls-column" aria-label="Vendo controls">
       <div class="panel">
         <button type="button" class="vbtn green" id="btnInsert">
-          Insert Bottle <span class="arrow">&#8250;</span>
+          Insert Item <span class="arrow">&#8250;</span>
         </button>
         <button type="button" class="vbtn blue" id="btnClassify">
-          Test Bottle Photo <span class="arrow">&#8250;</span>
+          Test Item Photo <span class="arrow">&#8250;</span>
         </button>
         <button type="button" class="vbtn purple" id="btnRedeem">
           Redeem Points <span class="arrow">&#8250;</span>
@@ -85,7 +85,7 @@
   </div>
 
   <footer class="portal-footer">
-    <div class="footnote">Insert a plastic bottle to earn points &middot; Points convert to WiFi time</div>
+    <div class="footnote">Insert plastic bottles or tin cans to earn points &middot; Points convert to WiFi time</div>
     <div class="footnote footer-links">
       <a href="#" id="btnAbout">About</a>
       <span>&middot;</span>
@@ -99,8 +99,8 @@
   <div class="tray">
     <button type="button" class="close-x" data-close="trayInsert" aria-label="Close">&times;</button>
     <div class="tray-handle"></div>
-    <h2>Insert Bottle</h2>
-    <div class="sub">Home Vendo &mdash; drop your bottle in the slot now</div>
+    <h2>Insert Item</h2>
+    <div class="sub">Home Vendo &mdash; drop your item in the slot now</div>
 
     <div class="weigh-screen">
       <div class="countdown"><span id="weighCountdown">30</span>s</div>
@@ -109,7 +109,7 @@
     </div>
 
     <div class="weigh-hint">
-      Insert at least 2 bottles to earn enough points for WiFi.<br>
+      Insert at least 2 items to earn enough points for WiFi.<br>
       A minimum of 50 points is required to generate a voucher.  
     </div>
 
@@ -132,10 +132,10 @@
 
     <div class="tray-handle"></div>
 
-    <h2>Test Bottle Photo</h2>
+    <h2>Test Item Photo</h2>
 
     <div class="sub">
-      Upload one bottle picture to test the trained model.
+      Upload one plastic-bottle, tin-can, or other-object picture to test the trained model.
       No points will be awarded.
     </div>
 
@@ -151,7 +151,7 @@
       id="btnRunClassifier"
       class="classifier-button"
     >
-      Check Bottle
+      Check Item
     </button>
 
     <div
@@ -193,7 +193,7 @@
     <div class="tray-handle"></div>
     <h2>WiFi Rates</h2>
     <div class="sub">
-      1 bottle = {{ points_per_bottle }} points
+     1 accepted container = {{ points_per_bottle }} points
     </div>
 
     <table class="rates">
@@ -218,10 +218,10 @@
   <div class="tray">
     <button type="button" class="close-x" data-close="trayAbout" aria-label="Close">&times;</button>
     <div class="tray-handle"></div>
-    <h2>About TrashToTech</h2>
+    <h2>About EcoLink</h2>
     <div class="sub">A capstone project for Barangay 39, Calvary Hill, Tacloban City</div>
     <p class="tray-copy">
-      Insert a plastic bottle, earn points based on how many you deposit, and redeem those points for WiFi time or a voucher. Built to reduce plastic waste while giving residents free internet access.
+      Insert plastic bottles or tin cans, earn points for every accepted item, and redeem those points for WiFi time or a voucher. Built to reduce recyclable waste while giving residents free internet access.    
     </p>
   </div>
 </div>
@@ -242,6 +242,6 @@
 <div class="toast" id="toast"></div>
 
 {{ state|json_script:"state-data" }}
-<script src="{% static 'kiosk/js/portal.js' %}"></script>
+<script src="{% static 'kiosk/js/portal.js' %}?v=3"></script>
 </body>
 </html>

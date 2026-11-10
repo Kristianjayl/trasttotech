@@ -17,13 +17,13 @@
   "
 >
   <div class="card kpi">
-    <div class="label">Total bottles collected</div>
-    <div class="value">{{ total_pieces }}</div>
+    <div class="label">Total plastic bottles collected</div>
+    <div class="value">{{ total_plastic_bottles }}</div>
   </div>
 
   <div class="card kpi">
-    <div class="label">Total plastic (kg)</div>
-    <div class="value">{{ total_kg }}</div>
+    <div class="label">Total tin cans collected</div>
+    <div class="value">{{ total_tin_cans }}</div>
   </div>
 
   <div class="card kpi">
@@ -56,7 +56,8 @@
     class="card kpi"
     id="bottle-scan-card"
   >
-    <div class="label">Bottle Scanner</div>
+
+  <div class="label">Item Scanner</div>
 
     <div
       class="value"
@@ -92,35 +93,31 @@
 
   <div
     class="card kpi"
-    id="bin-status-card"
-    {% if bin_status and bin_status.is_full %}
+    id="plastic-bin-status-card"
+    {% if plastic_bin_status and plastic_bin_status.is_full %}
       style="
         border:2px solid #dc2626;
         background:rgba(220,38,38,0.06);
       "
     {% endif %}
   >
-    <div class="label">Main Bin Status</div>
+    <div class="label">Plastic Bottle Bin</div>
 
     <div
       class="value"
-      id="bin-status-value"
-      {% if bin_status and bin_status.is_full %}
+      id="plastic-bin-status-value"
+      {% if plastic_bin_status and plastic_bin_status.is_full %}
         style="color:#dc2626;"
-      {% elif bin_status %}
+      {% elif plastic_bin_status %}
         style="color:#16a34a;"
       {% else %}
         style="color:#6b7280;"
       {% endif %}
     >
-      {% if not bin_status %}
+      {% if not plastic_bin_status %}
         UNKNOWN
-      {% elif bin_status.is_full %}
-        100% FULL
-      {% elif bin_status.fill_percent == 50 %}
-        50%
-      {% elif bin_status.fill_percent == 25 %}
-        25%
+      {% elif plastic_bin_status.is_full %}
+        FULL
       {% else %}
         EMPTY
       {% endif %}
@@ -128,49 +125,84 @@
 
     <div
       class="hint"
-      id="bin-status-message"
+      id="plastic-bin-status-message"
     >
-      {% if not bin_status %}
-        Waiting for the ESP32 sensor
-      {% elif bin_status.is_full %}
+      {% if not plastic_bin_status %}
+        Waiting for plastic-bin sensor
+      {% elif plastic_bin_status.is_full %}
         Ready for collection
-      {% elif bin_status.fill_percent == 50 %}
-        Bin is half full
-      {% elif bin_status.fill_percent == 25 %}
-        Bin has reached the first warning level
       {% else %}
         Bin is empty
       {% endif %}
     </div>
 
     <div
-      id="bin-full-alert"
-      style="
-        display:
-          {% if bin_status and bin_status.is_full %}
-            block
-          {% else %}
-            none
-          {% endif %};
-        margin-top:10px;
-        padding:8px;
-        border-radius:8px;
-        color:#991b1b;
-        background:#fee2e2;
-        font-weight:700;
-      "
+      class="hint"
+      id="plastic-bin-status-updated"
+      style="margin-top:8px;"
     >
-      &#9888; Bin ready for collection
+      {% if plastic_bin_status %}
+        Updated
+        {{ plastic_bin_status.updated_at|date:"M d, Y h:i:s A" }}
+      {% else %}
+        No sensor reading yet
+      {% endif %}
+    </div>
+  </div>
+
+  <div
+    class="card kpi"
+    id="tin-can-bin-status-card"
+    {% if tin_can_bin_status and tin_can_bin_status.is_full %}
+      style="
+        border:2px solid #dc2626;
+        background:rgba(220,38,38,0.06);
+      "
+    {% endif %}
+  >
+    <div class="label">Tin Can Bin</div>
+
+    <div
+      class="value"
+      id="tin-can-bin-status-value"
+      {% if tin_can_bin_status and tin_can_bin_status.is_full %}
+        style="color:#dc2626;"
+      {% elif tin_can_bin_status %}
+        style="color:#16a34a;"
+      {% else %}
+        style="color:#6b7280;"
+      {% endif %}
+    >
+      {% if not tin_can_bin_status %}
+        UNKNOWN
+      {% elif tin_can_bin_status.is_full %}
+        FULL
+      {% else %}
+        EMPTY
+      {% endif %}
     </div>
 
     <div
       class="hint"
-      id="bin-status-updated"
+      id="tin-can-bin-status-message"
+    >
+      {% if not tin_can_bin_status %}
+        Waiting for tin-can-bin sensor
+      {% elif tin_can_bin_status.is_full %}
+        Ready for collection
+      {% else %}
+        Bin is empty
+      {% endif %}
+    </div>
+
+    <div
+      class="hint"
+      id="tin-can-bin-status-updated"
       style="margin-top:8px;"
     >
-      {% if bin_status %}
+      {% if tin_can_bin_status %}
         Updated
-        {{ bin_status.updated_at|date:"M d, Y h:i:s A" }}
+        {{ tin_can_bin_status.updated_at|date:"M d, Y h:i:s A" }}
       {% else %}
         No sensor reading yet
       {% endif %}
@@ -276,20 +308,35 @@
     const wifiUsersUrl =
       "/staff/api/wifi-users/";
 
-    const card =
-      document.getElementById("bin-status-card");
+    const plasticBinElements = {
+      card: document.getElementById(
+        "plastic-bin-status-card"
+      ),
+      value: document.getElementById(
+        "plastic-bin-status-value"
+      ),
+      message: document.getElementById(
+        "plastic-bin-status-message"
+      ),
+      updated: document.getElementById(
+        "plastic-bin-status-updated"
+      ),
+    };
 
-    const value =
-      document.getElementById("bin-status-value");
-
-    const message =
-      document.getElementById("bin-status-message");
-
-    const alertBox =
-      document.getElementById("bin-full-alert");
-
-    const updated =
-      document.getElementById("bin-status-updated");
+    const tinCanBinElements = {
+      card: document.getElementById(
+        "tin-can-bin-status-card"
+      ),
+      value: document.getElementById(
+        "tin-can-bin-status-value"
+      ),
+      message: document.getElementById(
+        "tin-can-bin-status-message"
+      ),
+      updated: document.getElementById(
+        "tin-can-bin-status-updated"
+      ),
+    };
 
     const scanCard =
       document.getElementById("bottle-scan-card");
@@ -329,6 +376,11 @@
         border: "#16a34a",
         background: "rgba(22,163,74,0.06)",
       },
+      bin_full: {
+        color: "#dc2626",
+        border: "#dc2626",
+        background: "rgba(220,38,38,0.06)",
+      },
       rejected: {
         color: "#dc2626",
         border: "#dc2626",
@@ -356,81 +408,48 @@
       },
     };
 
-    function showUnknown() {
-      value.textContent = "UNKNOWN";
-      value.style.color = "#6b7280";
+    function showBinStatus(
+      elements,
+      data,
+      sensorName
+    ) {
+      const {
+        card,
+        value,
+        message,
+        updated,
+      } = elements;
 
-      message.textContent =
-        "Waiting for the ESP32 sensor";
-
-      alertBox.style.display = "none";
-
-      card.style.border = "";
-      card.style.background = "";
-
-      updated.textContent =
-        "No sensor reading yet";
-    }
-
-    function showBinStatus(data) {
-      if (!data.available) {
-        showUnknown();
+      if (!data || !data.available) {
+        value.textContent = "UNKNOWN";
+        value.style.color = "#6b7280";
+        message.textContent =
+          "Waiting for " + sensorName + " sensor";
+        card.style.border = "";
+        card.style.background = "";
+        updated.textContent = "No sensor reading yet";
         return;
       }
 
-      const level = Number(
-        data.fill_percent ?? (data.is_full ? 100 : 0)
-      );
-
-      if (level >= 100) {
-        value.textContent = "100% FULL";
+      if (data.is_full) {
+        value.textContent = "FULL";
         value.style.color = "#dc2626";
-
-        message.textContent =
-          "Ready for collection";
-
-        alertBox.style.display = "block";
-
-        card.style.border =
-          "2px solid #dc2626";
-
+        message.textContent = "Ready for collection";
+        card.style.border = "2px solid #dc2626";
         card.style.background =
           "rgba(220,38,38,0.06)";
-      } else if (level >= 50) {
-        value.textContent = "50%";
-        value.style.color = "#d97706";
-
-        message.textContent = "Bin is half full";
-        alertBox.style.display = "none";
-        card.style.border = "2px solid #d97706";
-        card.style.background = "rgba(217,119,6,0.06)";
-      } else if (level >= 25) {
-        value.textContent = "25%";
-        value.style.color = "#2563eb";
-
-        message.textContent =
-          "Bin has reached the first warning level";
-        alertBox.style.display = "none";
-        card.style.border = "2px solid #2563eb";
-        card.style.background = "rgba(37,99,235,0.05)";
       } else {
         value.textContent = "EMPTY";
         value.style.color = "#16a34a";
-
         message.textContent = "Bin is empty";
-
-        alertBox.style.display = "none";
-
         card.style.border = "";
         card.style.background = "";
       }
 
-      const updateTime =
-        new Date(data.updated_at);
+      const updateTime = new Date(data.updated_at);
 
       updated.textContent =
-        "Updated " +
-        updateTime.toLocaleString();
+        "Updated " + updateTime.toLocaleString();
     }
 
     async function refreshBinStatus() {
@@ -456,9 +475,22 @@
 
         const data = await response.json();
 
-        showBinStatus(data);
+        showBinStatus(
+          plasticBinElements,
+          data.plastic_bin,
+          "plastic-bin"
+        );
+
+        showBinStatus(
+          tinCanBinElements,
+          data.tin_can_bin,
+          "tin-can-bin"
+        );
       } catch (error) {
-        updated.textContent =
+        plasticBinElements.updated.textContent =
+          "Live update temporarily unavailable";
+
+        tinCanBinElements.updated.textContent =
           "Live update temporarily unavailable";
       }
     }
@@ -471,7 +503,10 @@
       const style =
         scanStyles[status] || scanStyles.unknown;
 
-      scanValue.textContent = status.toUpperCase();
+      scanValue.textContent =
+        status === "bin_full"
+          ? "BIN FULL"
+          : status.toUpperCase();
       scanValue.style.color = style.color;
       scanCard.style.border = style.border
         ? `2px solid ${style.border}`

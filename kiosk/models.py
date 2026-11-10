@@ -26,14 +26,14 @@ class KioskUser(models.Model):
 
 # this is a record of a rate for redeeming points for bottles
 class BottleRate(models.Model):
-    points_per_bottle = models.IntegerField(default=3)
+    points_per_bottle = models.IntegerField(default=5)
 
     def __str__(self):
         return f"{self.points_per_bottle} pts per bottle"
     
 # configurable reward for each accepted tin can
 class TinCanRate(models.Model):
-    points_per_tin_can = models.IntegerField(default=10)
+    points_per_tin_can = models.IntegerField(default=5)
 
     def __str__(self):
         return f"{self.points_per_tin_can} pts per tin can"
@@ -59,11 +59,31 @@ class Transaction(models.Model):
     DIRTY = "dirty"
     CONDITION_CHOICES = [(CLEAN, "Clean"), (DIRTY, "Dirty")]
 
+    PLASTIC_BOTTLE = "plastic_bottle"
+    TIN_CAN = "tin_can"
+    OTHER_OBJECT = "other_object"
+
+    ITEM_TYPE_CHOICES = [
+        (PLASTIC_BOTTLE, "Plastic Bottle"),
+        (TIN_CAN, "Tin Can"),
+        (OTHER_OBJECT, "Other Object"),
+    ]
+
     user = models.ForeignKey(KioskUser, on_delete=models.CASCADE, related_name="transactions")
     type = models.CharField(max_length=20, choices=TYPE_CHOICES)
     pieces = models.IntegerField(null=True, blank=True)
     weight_kg = models.FloatField(null=True, blank=True)  # tracking/reporting only -- NOT used for points
-    condition = models.CharField(max_length=10, choices=CONDITION_CHOICES, null=True, blank=True)  # only relevant for deposits
+    condition = models.CharField(max_length=10,
+                                  choices=CONDITION_CHOICES
+                                ,  null=True
+                                , blank=True)  # only relevant for deposits
+    
+    item_type = models.CharField(
+        max_length=20,
+        choices=ITEM_TYPE_CHOICES,
+        null=True,
+        blank=True,
+    )
     points_delta = models.IntegerField()
     wifi_minutes = models.IntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -128,6 +148,20 @@ class BottleScan(models.Model):
         (CANCELLED, "Cancelled"),
         (EXPIRED, "Expired"),
     ]
+    
+    NO_REJECTION = ""
+    NO_METAL = "no_metal"
+    PLASTIC_BIN_FULL = "plastic_bin_full"
+    TIN_CAN_BIN_FULL = "tin_can_bin_full"
+    OTHER_OBJECT = "other_object"
+
+    REJECTION_REASON_CHOICES = [
+        (NO_REJECTION, "No rejection"),
+        (NO_METAL, "Metal not verified"),
+        (PLASTIC_BIN_FULL, "Plastic bin full"),
+        (TIN_CAN_BIN_FULL, "Tin-can bin full"),
+        (OTHER_OBJECT, "Other object"),
+    ]
 
     user = models.ForeignKey(
         KioskUser,
@@ -140,7 +174,15 @@ class BottleScan(models.Model):
         default=WAITING,
         db_index=True,
     )
+    
     label = models.CharField(max_length=64, blank=True)
+
+    rejection_reason = models.CharField(
+        max_length=24,
+        choices=REJECTION_REASON_CHOICES,
+        blank=True,
+        default=NO_REJECTION,
+    )
     confidence_percent = models.DecimalField(
         max_digits=5,
         decimal_places=2,

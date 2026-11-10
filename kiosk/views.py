@@ -14,6 +14,7 @@ from .ml_classifier import classify_bottle
 from .models import (
     KioskUser,
     BottleRate,
+    TinCanRate,
     WifiRate,
     Transaction,
     Voucher,
@@ -53,7 +54,11 @@ def _set_uid_cookie(response, uid):
 #--------------------------------------------------------------- utils ---
 def _seed_rates_if_empty():
     if not BottleRate.objects.exists():
-        BottleRate.objects.create(points_per_bottle=3)
+        BottleRate.objects.create(points_per_bottle=5)
+
+    if not TinCanRate.objects.exists():
+        TinCanRate.objects.create(points_per_tin_can=5)
+
     if not WifiRate.objects.exists():
         WifiRate.objects.bulk_create([
             WifiRate(points=5, minutes=10, label="10 Minutes"),
@@ -136,7 +141,7 @@ def api_status(request):
 @require_POST
 def api_insert_start(request):
     """
-    Start a camera scan only when the main bin has space.
+    Start a camera scan when at least one collection bin has space. 
 
     The database check is authoritative, so the safety rule cannot
     be bypassed by calling the endpoint without using the portal.
@@ -149,31 +154,47 @@ def api_insert_start(request):
     )
 
     with transaction.atomic():
-        bin_status = (
+        plastic_bin_status = (
             BinStatus.objects
             .select_for_update()
-            .filter(device_id="main-bin")
+            .filter(device_id="plastic-bin")
             .first()
         )
 
-        bin_is_full = (
-            bin_status is not None
+        tin_can_bin_status = (
+            BinStatus.objects
+            .select_for_update()
+            .filter(device_id="tin-can-bin")
+            .first()
+        )
+
+        plastic_bin_is_full = (
+            plastic_bin_status is not None
             and (
-                bin_status.is_full
-                or bin_status.fill_percent == BinStatus.FULL
+                plastic_bin_status.is_full
+                or plastic_bin_status.fill_percent
+                == BinStatus.FULL
             )
         )
 
-        if bin_is_full:
+        tin_can_bin_is_full = (
+            tin_can_bin_status is not None
+            and (
+                tin_can_bin_status.is_full
+                or tin_can_bin_status.fill_percent
+                == BinStatus.FULL
+            )
+        )
+
+        if plastic_bin_is_full and tin_can_bin_is_full:
             response = JsonResponse(
                 {
                     "ok": False,
                     "error": "bin_full",
                     "message": (
-                        "The bin is full and ready for collection. "
-                        "Bottle scanning is temporarily unavailable."
+                        "Both collection bins are full. "
+                        "Item scanning is temporarily unavailable."
                     ),
-                    "fill_percent": bin_status.fill_percent,
                 },
                 status=409,
             )
@@ -301,6 +322,9 @@ def api_insert_poll(request):
             "done": scan.status != BottleScan.WAITING,
             "seconds_left": seconds_left,
             "label": scan.label or None,
+            "rejection_reason": (
+                scan.rejection_reason or None
+            ),
             "confidence_percent": (
                 float(scan.confidence_percent)
                 if scan.confidence_percent is not None
@@ -388,6 +412,9 @@ def api_insert_confirm(request):
             "condition": condition,
             "status": scan.status,
             "label": scan.label or None,
+            "rejection_reason": (
+                scan.rejection_reason or None
+            ),
             "confidence_percent": (
                 float(scan.confidence_percent)
                 if scan.confidence_percent is not None
@@ -662,6 +689,30 @@ def api_device_scan_status(request):
 
     elif (
         scan.status == BottleScan.REJECTED
+        and scan.rejection_reason
+        == BottleScan.PLASTIC_BIN_FULL
+    ):
+        display_status = "bin_full"
+        message = "Plastic Bin Full"
+
+    elif (
+        scan.status == BottleScan.REJECTED
+        and scan.rejection_reason
+        == BottleScan.TIN_CAN_BIN_FULL
+    ):
+        display_status = "bin_full"
+        message = "Tin Can Bin Full"
+
+    elif (
+        scan.status == BottleScan.REJECTED
+        and scan.rejection_reason
+        == BottleScan.NO_METAL
+    ):
+        display_status = "rejected"
+        message = "Tin Can Not Verified"
+
+    elif (
+        scan.status == BottleScan.REJECTED
         and label_key == "other object"
     ):
         display_status = "invalid"
@@ -695,6 +746,9 @@ def api_device_scan_status(request):
                 float(scan.confidence_percent)
                 if scan.confidence_percent is not None
                 else None
+            ),
+            "rejection_reason": (
+                scan.rejection_reason or None
             ),
             "points_awarded": scan.points_awarded,
             "started_at": scan.started_at.isoformat(),

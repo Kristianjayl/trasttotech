@@ -1,7 +1,7 @@
 {% extends "adminpanel/base.html" %}
 {% block title %}Reports{% endblock %}
 {% block page_title %}Reports{% endblock %}
-{% block page_sub %}Clean vs. dirty bottles collected, over time{% endblock %}
+{% block page_sub %}Plastic bottles and tin cans collected over time{% endblock %}
 
 {% block content %}
 <div class="reports-grid">
@@ -9,29 +9,51 @@
     <div class="reports-card-head">
       <div>
         <h3>Monthly comparison</h3>
-        <div class="hint">Clean and dirty bottles collected per month</div>
+        <div class="hint">
+          Plastic bottles and tin cans collected per month
+        </div>
       </div>
+
       <div class="reports-legend" aria-label="Chart legend">
-        <span><i class="reports-legend-dot clean"></i>Clean</span>
-        <span><i class="reports-legend-dot dirty"></i>Dirty</span>
+        <span>
+          <i class="reports-legend-dot plastic"></i>
+          Plastic bottles
+        </span>
+        <span>
+          <i class="reports-legend-dot tin"></i>
+          Tin cans
+        </span>
       </div>
     </div>
 
     {% if monthly %}
       <div class="reports-month-list">
         {% for row in monthly %}
-          <div class="reports-row monthly-report-row"
-               data-clean="{{ row.clean }}"
-               data-dirty="{{ row.dirty }}">
+          <div
+            class="reports-row monthly-report-row"
+            data-plastic="{{ row.plastic }}"
+            data-tin="{{ row.tin }}"
+          >
             <div class="reports-row-head">
               <strong>{{ row.label }}</strong>
-              <span>{{ row.clean }} clean · {{ row.dirty }} dirty</span>
+              <span>
+                {{ row.plastic }} plastic · {{ row.tin }} tin cans
+              </span>
             </div>
-            <div class="reports-bar"
-                 role="img"
-                 aria-label="{{ row.label }}: {{ row.clean }} clean and {{ row.dirty }} dirty bottles">
-              <span class="reports-bar-clean" style="width:{{ row.clean_pct }}%"></span>
-              <span class="reports-bar-dirty" style="width:{{ row.dirty_pct }}%"></span>
+
+            <div
+              class="reports-bar"
+              role="img"
+              aria-label="{{ row.label }}: {{ row.plastic }} plastic bottles and {{ row.tin }} tin cans"
+            >
+              <span
+                class="reports-bar-plastic"
+                style="width:{{ row.plastic_pct }}%"
+              ></span>
+              <span
+                class="reports-bar-tin"
+                style="width:{{ row.tin_pct }}%"
+              ></span>
             </div>
           </div>
         {% endfor %}
@@ -44,17 +66,19 @@
   <section class="card reports-pie-card">
     <div class="reports-card-head">
       <div>
-        <h3>Clean vs. dirty</h3>
-        <div class="hint">All recorded bottles</div>
+        <h3>Plastic bottles vs. tin cans</h3>
+        <div class="hint">All recorded accepted items</div>
       </div>
     </div>
 
     {% if monthly %}
       <div class="reports-pie-wrap">
-        <div id="reports-pie"
-             class="reports-pie"
-             role="img"
-             aria-label="Clean and dirty bottle totals">
+        <div
+          id="reports-pie"
+          class="reports-pie"
+          role="img"
+          aria-label="Plastic-bottle and tin-can totals"
+        >
           <div class="reports-pie-center">
             <strong id="reports-pie-total">0</strong>
             <span>total</span>
@@ -64,12 +88,18 @@
 
       <div class="reports-pie-totals">
         <div>
-          <span><i class="reports-legend-dot clean"></i>Clean</span>
-          <strong id="reports-clean-total">0</strong>
+          <span>
+            <i class="reports-legend-dot plastic"></i>
+            Plastic bottles
+          </span>
+          <strong id="reports-plastic-total">0</strong>
         </div>
         <div>
-          <span><i class="reports-legend-dot dirty"></i>Dirty</span>
-          <strong id="reports-dirty-total">0</strong>
+          <span>
+            <i class="reports-legend-dot tin"></i>
+            Tin cans
+          </span>
+          <strong id="reports-tin-total">0</strong>
         </div>
       </div>
     {% else %}
@@ -82,11 +112,20 @@
   <div class="reports-card-head">
     <div>
       <h3>Yearly comparison</h3>
-      <div class="hint">Clean and dirty bottle totals per year</div>
+      <div class="hint">
+        Plastic-bottle and tin-can totals per year
+      </div>
     </div>
+
     <div class="reports-legend" aria-label="Chart legend">
-      <span><i class="reports-legend-dot clean"></i>Clean</span>
-      <span><i class="reports-legend-dot dirty"></i>Dirty</span>
+      <span>
+        <i class="reports-legend-dot plastic"></i>
+        Plastic bottles
+      </span>
+      <span>
+        <i class="reports-legend-dot tin"></i>
+        Tin cans
+      </span>
     </div>
   </div>
 
@@ -96,13 +135,24 @@
         <div class="reports-year-row">
           <div class="reports-row-head">
             <strong>{{ row.label }}</strong>
-            <span>{{ row.clean }} clean · {{ row.dirty }} dirty</span>
+            <span>
+              {{ row.plastic }} plastic · {{ row.tin }} tin cans
+            </span>
           </div>
-          <div class="reports-bar"
-               role="img"
-               aria-label="{{ row.label }}: {{ row.clean }} clean and {{ row.dirty }} dirty bottles">
-            <span class="reports-bar-clean" style="width:{{ row.clean_pct }}%"></span>
-            <span class="reports-bar-dirty" style="width:{{ row.dirty_pct }}%"></span>
+
+          <div
+            class="reports-bar"
+            role="img"
+            aria-label="{{ row.label }}: {{ row.plastic }} plastic bottles and {{ row.tin }} tin cans"
+          >
+            <span
+              class="reports-bar-plastic"
+              style="width:{{ row.plastic_pct }}%"
+            ></span>
+            <span
+              class="reports-bar-tin"
+              style="width:{{ row.tin_pct }}%"
+            ></span>
           </div>
         </div>
       {% endfor %}
@@ -115,27 +165,45 @@
 {% if monthly %}
 <script>
   document.addEventListener('DOMContentLoaded', function () {
-    var cleanTotal = 0;
-    var dirtyTotal = 0;
+    var plasticTotal = 0;
+    var tinTotal = 0;
     var rows = document.querySelectorAll('.monthly-report-row');
 
     rows.forEach(function (row) {
-      cleanTotal += Number(row.dataset.clean) || 0;
-      dirtyTotal += Number(row.dataset.dirty) || 0;
+      plasticTotal += Number(row.dataset.plastic) || 0;
+      tinTotal += Number(row.dataset.tin) || 0;
     });
 
-    var total = cleanTotal + dirtyTotal;
-    var cleanPercent = total ? (cleanTotal / total) * 100 : 0;
+    var total = plasticTotal + tinTotal;
+    var plasticPercent = total
+      ? (plasticTotal / total) * 100
+      : 0;
+
     var pie = document.getElementById('reports-pie');
 
-    document.getElementById('reports-clean-total').textContent = cleanTotal;
-    document.getElementById('reports-dirty-total').textContent = dirtyTotal;
-    document.getElementById('reports-pie-total').textContent = total;
+    document.getElementById(
+      'reports-plastic-total'
+    ).textContent = plasticTotal;
 
-    pie.style.setProperty('--clean-percent', cleanPercent + '%');
+    document.getElementById(
+      'reports-tin-total'
+    ).textContent = tinTotal;
+
+    document.getElementById(
+      'reports-pie-total'
+    ).textContent = total;
+
+    pie.style.setProperty(
+      '--plastic-percent',
+      plasticPercent + '%'
+    );
+
     pie.setAttribute(
       'aria-label',
-      cleanTotal + ' clean and ' + dirtyTotal + ' dirty bottles'
+      plasticTotal
+        + ' plastic bottles and '
+        + tinTotal
+        + ' tin cans'
     );
   });
 </script>

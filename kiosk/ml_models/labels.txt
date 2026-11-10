@@ -1,4 +1,4 @@
-0 Reject
-1 Clean
-2 No Bottle
-3 Invalid
+0 plastic_bottle
+1 other_object
+2 no_item
+3 tin_can

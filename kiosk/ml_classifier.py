@@ -11,8 +11,12 @@ MODEL_FOLDER = Path(__file__).resolve().parent / "ml_models"
 MODEL_PATH = MODEL_FOLDER / "model_unquant.tflite"
 LABELS_PATH = MODEL_FOLDER / "labels.txt"
 
-CLEAN_CONFIDENCE_MINIMUM = 0.80
-PLASTIC_BOTTLE_LABELS = {"clean", "reject"}
+ITEM_CONFIDENCE_MINIMUM = 0.80
+
+RECYCLABLE_ITEM_LABELS = {
+    "plastic bottle",
+    "tin can",
+}
 
 
 @lru_cache(maxsize=1)
@@ -109,13 +113,17 @@ def classify_bottle(image_source):
     label = labels[best_index]
     confidence = float(predictions[best_index])
 
-    is_accepted = (
-        label.lower() in PLASTIC_BOTTLE_LABELS
-        and confidence >= CLEAN_CONFIDENCE_MINIMUM
+    label_key = (
+        label
+        .strip()
+        .lower()
+        .replace("_", " ")
+        .replace("-", " ")
     )
-    is_clean = (
-        label.lower() == "clean"
-        and confidence >= CLEAN_CONFIDENCE_MINIMUM
+
+    is_recognized_item = (
+        label_key in RECYCLABLE_ITEM_LABELS
+        and confidence >= ITEM_CONFIDENCE_MINIMUM
     )
 
     confidence_percent = round(confidence * 100, 2)
@@ -128,7 +136,6 @@ def classify_bottle(image_source):
     return {
         "label": label,
         "confidence_percent": confidence_percent,
-        "is_accepted": is_accepted,
-        "is_clean": is_clean,
+        "is_recognized_item": is_recognized_item,
         "scores_percent": scores_percent,
     }

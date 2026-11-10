@@ -309,8 +309,8 @@
   border-radius:50%;
 }
 
-.reports-legend-dot.clean{ background:var(--green); }
-.reports-legend-dot.dirty{ background:var(--red); }
+.reports-legend-dot.plastic{ background:var(--green); }
+.reports-legend-dot.tin{ background:#64748b; }
 
 .reports-month-list{
   display:grid;
@@ -355,8 +355,8 @@
   background:#edf2ee;
 }
 
-.reports-bar-clean{ background:var(--green); }
-.reports-bar-dirty{ background:var(--red); }
+.reports-bar-plastic{ background:var(--green); }
+.reports-bar-tin{ background:#64748b; }
 
 .reports-pie-card{
   display:flex;
@@ -371,15 +371,15 @@
 }
 
 .reports-pie{
-  --clean-percent:0%;
+  --plastic-percent:0%;
   width:164px;
   height:164px;
   display:grid;
   place-items:center;
   border-radius:50%;
   background:conic-gradient(
-    var(--green) 0 var(--clean-percent),
-    var(--red) var(--clean-percent) 100%
+    var(--green) 0 var(--plastic-percent),
+  #64748b var(--plastic-percent) 100%
   );
 }
 

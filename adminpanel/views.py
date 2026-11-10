@@ -19,6 +19,7 @@ from kiosk.models import (
     WifiRate,
     BinStatus,
     BottleScan,
+    TinCanRate,
 )
 
 # ============================================================
@@ -39,6 +40,25 @@ def overview(request):
 
     total_pieces = Transaction.objects.filter(type=Transaction.DEPOSIT).aggregate(
         total=Sum("pieces"))["total"] or 0
+    total_plastic_bottles = (
+        Transaction.objects
+        .filter(
+            type=Transaction.DEPOSIT,
+            item_type=Transaction.PLASTIC_BOTTLE,
+        )
+        .aggregate(total=Sum("pieces"))["total"]
+        or 0
+    )
+
+    total_tin_cans = (
+        Transaction.objects
+        .filter(
+            type=Transaction.DEPOSIT,
+            item_type=Transaction.TIN_CAN,
+        )
+        .aggregate(total=Sum("pieces"))["total"]
+        or 0
+    )
     total_kg = Transaction.objects.filter(type=Transaction.DEPOSIT).aggregate(
         total=Sum("weight_kg"))["total"] or 0
     points_issued = Transaction.objects.filter(type=Transaction.DEPOSIT).aggregate(
@@ -54,19 +74,26 @@ def overview(request):
 
     recent_transactions = Transaction.objects.select_related("user").order_by("-created_at")[:10]
 
-    bin_status = BinStatus.objects.filter(
-    device_id="main-bin"
+    plastic_bin_status = BinStatus.objects.filter(
+    device_id="plastic-bin"
+    ).first()
+
+    tin_can_bin_status = BinStatus.objects.filter(
+        device_id="tin-can-bin"
     ).first()
 
     return render(request, "adminpanel/overview.html", {
     "total_pieces": total_pieces,
+    "total_plastic_bottles": total_plastic_bottles,
+    "total_tin_cans": total_tin_cans,
     "total_kg": round(total_kg, 2),
     "points_issued": points_issued,
     "wifi_sessions": wifi_sessions,
     "active_users": active_users,
     "internet_hours": round(internet_minutes / 60, 1),
     "recent_transactions": recent_transactions,
-    "bin_status": bin_status,
+    "plastic_bin_status": plastic_bin_status,
+    "tin_can_bin_status": tin_can_bin_status,
     "today": today,
     })
 
@@ -148,22 +175,48 @@ def rewards(request):
 
 @role_required('admin')
 def rates(request):
+    bottle_rate = BottleRate.objects.order_by("id").first()
+    if bottle_rate is None:
+        bottle_rate = BottleRate.objects.create(
+            points_per_bottle=5,
+        )
+
+    tin_can_rate = TinCanRate.objects.order_by("id").first()
+    if tin_can_rate is None:
+        tin_can_rate = TinCanRate.objects.create(
+            points_per_tin_can=5,
+        )
+
     if request.method == "POST":
-        bottle_rate = BottleRate.objects.first()
-        bottle_rate.points_per_bottle = int(request.POST.get("points_per_bottle"))
+        bottle_rate.points_per_bottle = int(
+            request.POST.get("points_per_bottle")
+        )
         bottle_rate.save()
 
+        tin_can_rate.points_per_tin_can = int(
+            request.POST.get("points_per_tin_can")
+        )
+        tin_can_rate.save()
+
         for wr in WifiRate.objects.all():
-            new_val = request.POST.get(f"wifi_points_{wr.id}")
+            new_val = request.POST.get(
+                f"wifi_points_{wr.id}"
+            )
             if new_val:
                 wr.points = int(new_val)
                 wr.save()
+
         return redirect("staff_rates")
 
-    return render(request, "adminpanel/rates.html", {
-        "bottle_rate": BottleRate.objects.first(),
-        "wifi_rates": WifiRate.objects.order_by("points"),
-    })
+    return render(
+        request,
+        "adminpanel/rates.html",
+        {
+            "bottle_rate": bottle_rate,
+            "tin_can_rate": tin_can_rate,
+            "wifi_rates": WifiRate.objects.order_by("points"),
+        },
+    )
 
 
 @role_required('admin')
@@ -253,17 +306,24 @@ def privacy_policy(request):
 
 @login_required
 def reports(request):
-    deposits = Transaction.objects.filter(type=Transaction.DEPOSIT)
+    deposits = Transaction.objects.filter(
+        type=Transaction.DEPOSIT,
+        item_type__in=[
+            Transaction.PLASTIC_BOTTLE,
+            Transaction.TIN_CAN,
+        ],
+    )
 
     monthly_raw = (
         deposits.annotate(period=TruncMonth("created_at"))
-        .values("period", "condition")
+        .values("period", "item_type")
         .annotate(count=Sum("pieces"))
         .order_by("period")
     )
+
     yearly_raw = (
         deposits.annotate(period=TruncYear("created_at"))
-        .values("period", "condition")
+        .values("period", "item_type")
         .annotate(count=Sum("pieces"))
         .order_by("period")
     )
@@ -273,64 +333,101 @@ def reports(request):
 
         for row in raw:
             key = row["period"].strftime(fmt)
-            buckets.setdefault(key, {"clean": 0, "dirty": 0})
+            buckets.setdefault(
+                key,
+                {
+                    "plastic": 0,
+                    "tin": 0,
+                },
+            )
 
-            if row["condition"] in ("clean", "dirty"):
-                buckets[key][row["condition"]] = row["count"] or 0
+            item_key = {
+                Transaction.PLASTIC_BOTTLE: "plastic",
+                Transaction.TIN_CAN: "tin",
+            }.get(row["item_type"])
+
+            if item_key:
+                buckets[key][item_key] = row["count"] or 0
 
         return buckets
 
     def with_bar_widths(buckets):
-        # Precompute each bar's width as a % of the largest total, so the
-        # template can just plug in a number -- Django templates can't do
-        # this kind of math themselves.
         rows = []
-        max_total = max([v["clean"] + v["dirty"] for v in buckets.values()], default=1) or 1
-        for label, vals in buckets.items():
-            total = vals["clean"] + vals["dirty"]
-            rows.append({
-                "label": label,
-                "clean": vals["clean"],
-                "dirty": vals["dirty"],
-                "total": total,
-                "clean_pct": round((vals["clean"] / max_total) * 100, 1),
-                "dirty_pct": round((vals["dirty"] / max_total) * 100, 1),
-            })
+        max_total = max(
+            [
+                values["plastic"] + values["tin"]
+                for values in buckets.values()
+            ],
+            default=1,
+        ) or 1
+
+        for label, values in buckets.items():
+            total = values["plastic"] + values["tin"]
+
+            rows.append(
+                {
+                    "label": label,
+                    "plastic": values["plastic"],
+                    "tin": values["tin"],
+                    "total": total,
+                    "plastic_pct": round(
+                        (values["plastic"] / max_total) * 100,
+                        1,
+                    ),
+                    "tin_pct": round(
+                        (values["tin"] / max_total) * 100,
+                        1,
+                    ),
+                }
+            )
+
         return rows
 
-    monthly = with_bar_widths(pivot(monthly_raw, "%b %Y"))
-    yearly = with_bar_widths(pivot(yearly_raw, "%Y"))
+    monthly = with_bar_widths(
+        pivot(monthly_raw, "%b %Y")
+    )
+    yearly = with_bar_widths(
+        pivot(yearly_raw, "%Y")
+    )
 
-    return render(request, "adminpanel/reports.html", {
-        "monthly": monthly,
-        "yearly": yearly,
-    })
+    return render(
+        request,
+        "adminpanel/reports.html",
+        {
+            "monthly": monthly,
+            "yearly": yearly,
+        },
+    )
 
 @login_required
 @require_GET
 def bin_status_live(request):
-    bin_status = BinStatus.objects.filter(
-        device_id="main-bin"
-    ).first()
+    def make_status(device_id):
+        bin_status = BinStatus.objects.filter(
+            device_id=device_id
+        ).first()
 
-    if bin_status is None:
-        return JsonResponse({
-            "ok": True,
-            "available": False,
-        })
+        if bin_status is None:
+            return {
+                "available": False,
+            }
+
+        return {
+            "available": True,
+            "fill_percent": bin_status.fill_percent,
+            "is_full": bin_status.is_full,
+            "status": (
+                "full"
+                if bin_status.is_full
+                else "empty"
+            ),
+            "updated_at": bin_status.updated_at.isoformat(),
+        }
 
     return JsonResponse({
         "ok": True,
-        "available": True,
-        "fill_percent": bin_status.fill_percent,
-        "is_full": bin_status.is_full,
-        "status": {
-            BinStatus.EMPTY: "empty",
-            BinStatus.LOW: "low",
-            BinStatus.HALF: "half",
-            BinStatus.FULL: "full",
-        }.get(bin_status.fill_percent, "unknown"),
-        "updated_at": bin_status.updated_at.isoformat(),
+        "plastic_bin": make_status("plastic-bin"),
+        "tin_can_bin": make_status("tin-can-bin"),
     })
 
 
@@ -362,29 +459,68 @@ def bottle_scan_live(request):
         status = BottleScan.EXPIRED
 
     label = scan.label.strip() or None
-    label_key = (label or "").lower()
+    label_key = (
+        (label or "")
+        .lower()
+        .replace("_", " ")
+        .replace("-", " ")
+    )
 
     if status == BottleScan.WAITING:
         display_status = "scanning"
-        message = "Waiting for the camera to classify a bottle"
+        message = "Waiting for the camera to classify an item"
     elif status == BottleScan.ACCEPTED:
         display_status = "accepted"
-        message = "Clean bottle accepted"
-    elif status == BottleScan.REJECTED and label_key == "invalid":
+
+        if label_key == "plastic bottle":
+            message = "Plastic bottle accepted"
+        elif label_key == "tin can":
+            message = "Tin can accepted"
+        else:
+            message = "Item accepted"
+    elif (
+        status == BottleScan.REJECTED
+        and scan.rejection_reason
+        == BottleScan.PLASTIC_BIN_FULL
+    ):
+        display_status = "bin_full"
+        message = "Plastic bottle bin is full"
+
+    elif (
+        status == BottleScan.REJECTED
+        and scan.rejection_reason
+        == BottleScan.TIN_CAN_BIN_FULL
+    ):
+        display_status = "bin_full"
+        message = "Tin can bin is full"
+
+    elif (
+        status == BottleScan.REJECTED
+        and scan.rejection_reason
+        == BottleScan.NO_METAL
+    ):
+        display_status = "rejected"
+        message = "Tin can was not metal-verified"
+
+    elif (
+        status == BottleScan.REJECTED
+        and label_key == "other object"
+    ):
         display_status = "invalid"
         message = "Invalid object detected"
+
     elif status == BottleScan.REJECTED:
         display_status = "rejected"
-        message = "Bottle rejected"
+        message = "Item rejected"
     elif status == BottleScan.CANCELLED:
         display_status = "cancelled"
-        message = "Bottle scan cancelled"
+        message = "Item scan cancelled"
     elif status == BottleScan.EXPIRED:
         display_status = "expired"
-        message = "Bottle scan timed out"
+        message = "Item scan timed out"
     else:
         display_status = "unknown"
-        message = "Unknown scanner state"
+        message = "Unknown item-scanner state"
 
     confidence = (
         float(scan.confidence_percent)
@@ -408,6 +544,9 @@ def bottle_scan_live(request):
         "display_status": display_status,
         "message": message,
         "label": label,
+        "rejection_reason": (
+            scan.rejection_reason or None
+        ),
         "confidence_percent": confidence,
         "points_awarded": scan.points_awarded,
         "user": scan.user.mac_display(),

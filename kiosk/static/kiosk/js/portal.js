@@ -198,7 +198,7 @@
   // change one, change the other too.
   const VOUCHER_MIN_POINTS = 50;
 
-  function showDepositResult(data){
+  function showDepositResult(data) {
     if (typeof data.new_balance === 'number') {
       setPoints(data.new_balance);
     }
@@ -211,17 +211,47 @@
       ? Number(data.confidence_percent).toFixed(2) + '%'
       : '';
 
-    const displayLabel = data.label === 'Reject'
-      ? 'Dirty Plastic Bottle'
-      : data.label === 'Clean'
-        ? 'Clean Plastic Bottle'
-        : data.label;
+    const labelKey = String(data.label || '')
+      .trim()
+      .toLowerCase()
+      .replace(/_/g, ' ')
+      .replace(/-/g, ' ');
+
+    const displayLabels = {
+      'plastic bottle': 'Plastic Bottle',
+      'tin can': 'Tin Can',
+      'other object': 'Other Object',
+      'no item': 'No Item Detected',
+    };
+
+    const displayLabel = displayLabels[labelKey] || data.label || 'Item';
+    const isInvalid = data.is_invalid || labelKey === 'other object';
+    const isTinCan = labelKey === 'tin can';
+
+    const rejectionReason = String(
+      data.rejection_reason || ''
+    );
+
+    const isBinFull =
+      rejectionReason === 'plastic_bin_full'
+      || rejectionReason === 'tin_can_bin_full';
+
+    const fullBinTitle =
+      rejectionReason === 'tin_can_bin_full'
+        ? 'Tin Can Bin Full'
+        : 'Plastic Bottle Bin Full';
 
     if (data.status === 'accepted') {
       const canVoucher = data.new_balance >= VOUCHER_MIN_POINTS;
+      const acceptedTitle = isTinCan
+        ? 'Tin Can Accepted'
+        : labelKey === 'plastic bottle'
+          ? 'Plastic Bottle Accepted'
+          : 'Item Accepted';
+
       box.innerHTML = `
         <div class="weigh-hint" style="background:#E7F7EA; color:#1F6B33;">
-          <strong>Bottle Accepted</strong><br>
+          <strong>${acceptedTitle}</strong><br>
           ${displayLabel}${confidence ? ` — ${confidence}` : ''}<br>
           +${data.points_awarded} points. Balance: ${data.new_balance} pts.
         </div>
@@ -246,33 +276,58 @@
         );
       }
     }
-    else if (data.status === 'rejected' && data.is_invalid) {
+
+    else if (data.status === 'rejected' && isBinFull) {
+      box.innerHTML = `
+        <div class="weigh-hint" style="background:#FBE9E6; color:#9A2E1C;">
+          <strong>${fullBinTitle}</strong><br>
+          ${displayLabel}${confidence ? ` — ${confidence}` : ''}<br>
+          This collection bin is full. Please wait for collection.
+          No points awarded.
+        </div>
+        <button class="cancel-link" data-close="trayInsert">Close</button>`;
+
+      showToast(fullBinTitle, 'error');
+    }
+    
+    else if (data.status === 'rejected' && isInvalid) {
       box.innerHTML = `
         <div class="weigh-hint" style="background:#FFF3CD; color:#854D0E;">
           <strong>Invalid Object</strong><br>
-          ${data.label}${confidence ? ` — ${confidence}` : ''}<br>
-          Please insert a valid plastic bottle. No points awarded.
+          ${displayLabel}${confidence ? ` — ${confidence}` : ''}<br>
+          Please insert a plastic bottle or tin can. No points awarded.
         </div>
         <button class="cancel-link" data-close="trayInsert">Close</button>`;
 
       showToast('Invalid object', 'error');
     }
-    else if (data.status === 'rejected') {
+    else if (data.status === 'rejected' && isTinCan) {
       box.innerHTML = `
         <div class="weigh-hint" style="background:#FBE9E6; color:#9A2E1C;">
-          <strong>Bottle Rejected</strong><br>
-          ${data.label}${confidence ? ` — ${confidence}` : ''}<br>
-          The bottle was not accepted. No points awarded.
+          <strong>Tin Can Not Verified</strong><br>
+          ${displayLabel}${confidence ? ` — ${confidence}` : ''}<br>
+          The metal sensor did not recently verify this item. No points awarded.
         </div>
         <button class="cancel-link" data-close="trayInsert">Close</button>`;
 
-      showToast('Bottle rejected', 'error');
+      showToast('Tin can not verified', 'error');
+    }
+    else if (data.status === 'rejected') {
+      box.innerHTML = `
+        <div class="weigh-hint" style="background:#FBE9E6; color:#9A2E1C;">
+          <strong>Item Rejected</strong><br>
+          ${displayLabel}${confidence ? ` — ${confidence}` : ''}<br>
+          This item was not accepted. No points awarded.
+        </div>
+        <button class="cancel-link" data-close="trayInsert">Close</button>`;
+
+      showToast('Item rejected', 'error');
     }
     else {
       box.innerHTML = `
         <div class="weigh-hint" style="background:#FBE9E6; color:#9A2E1C;">
           <strong>Scan Timed Out</strong><br>
-          No stable bottle result was received. Please try again.
+          No stable item result was received. Please try again.
         </div>
         <button class="cancel-link" data-close="trayInsert">Close</button>`;
 
@@ -421,7 +476,7 @@ function showBinFullFailure(message){
     const image = classifierInput.files[0];
 
     if (!image) {
-      showToast('Choose a bottle picture first', 'error');
+      showToast('Choose an item picture first', 'error');
       return;
     }
 
@@ -430,7 +485,7 @@ function showBinFullFailure(message){
 
     classifierButton.disabled = true;
     classifierButton.textContent = 'Checking...';
-    classifierResult.textContent = 'Analyzing bottle...';
+    classifierResult.textContent = 'Analyzing item...';
     classifierResult.className = 'classifier-result show';
 
     try {
@@ -448,19 +503,46 @@ function showBinFullFailure(message){
         throw new Error(result.error || 'Classification failed');
       }
 
-      const isAccepted = result.is_accepted;
-      const displayLabel = result.label === 'Reject'
-        ? 'Dirty Plastic Bottle'
-        : result.label === 'Clean'
-          ? 'Clean Plastic Bottle'
-          : result.label;
-      const decision = isAccepted
-        ? 'Plastic Bottle Accepted'
-        : 'Bottle Rejected';
+      const isRecognizedItem = Boolean(
+        result.is_recognized_item
+      );
+
+      const labelKey = String(result.label || '')
+        .trim()
+        .toLowerCase()
+        .replace(/_/g, ' ')
+        .replace(/-/g, ' ');
+
+      const displayLabels = {
+        'plastic bottle': 'Plastic Bottle',
+        'tin can': 'Tin Can',
+        'other object': 'Other Object',
+        'no item': 'No Item Detected',
+      };
+
+      const displayLabel = (
+        displayLabels[labelKey]
+        || result.label
+        || 'Unknown Item'
+      );
+
+      let decision = 'Item Not Recognized';
+
+      if (isRecognizedItem) {
+        decision = labelKey === 'tin can'
+          ? 'Tin Can Detected'
+          : 'Plastic Bottle Detected';
+      }
+      else if (labelKey === 'other object') {
+        decision = 'Other Object Detected';
+      }
+      else if (labelKey === 'no item') {
+        decision = 'No Item Detected';
+      }
 
       classifierResult.className =
         'classifier-result show ' +
-        (isAccepted ? 'accepted' : 'rejected');
+        (isRecognizedItem ? 'accepted' : 'rejected');
 
       classifierResult.innerHTML = `
         <strong>${decision}</strong>
@@ -471,7 +553,7 @@ function showBinFullFailure(message){
 
       showToast(
         decision,
-        isAccepted ? 'success' : 'error'
+        isRecognizedItem ? 'success' : 'error'
       );
     }
     catch (error) {
@@ -487,7 +569,7 @@ function showBinFullFailure(message){
     }
     finally {
       classifierButton.disabled = false;
-      classifierButton.textContent = 'Check Bottle';
+      classifierButton.textContent = 'Check Item';
     }
   });
 

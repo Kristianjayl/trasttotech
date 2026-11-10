@@ -180,3 +180,5 @@ class Command(BaseCommand):
                     "Camera monitor stopped."
                 )
             )
+
+            

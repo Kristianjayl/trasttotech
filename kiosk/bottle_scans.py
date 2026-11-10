@@ -5,6 +5,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from .models import (
+    BinStatus,
     BottleRate,
     BottleScan,
     KioskUser,
@@ -54,6 +55,22 @@ def complete_waiting_scan(
     """
     label_key = normalize_bottle_label(label)
 
+    def _bin_is_full(device_id):
+        bin_status = (
+            BinStatus.objects
+            .select_for_update()
+            .filter(device_id=device_id)
+            .first()
+        )
+
+        return (
+            bin_status is not None
+            and (
+                bin_status.is_full
+                or bin_status.fill_percent == BinStatus.FULL
+            )
+        )
+
     if label_key not in {
         "plastic bottle",
         "tin can",
@@ -99,34 +116,58 @@ def complete_waiting_scan(
             .get(pk=scan.user_id)
         )
 
-        if label_key == "plastic bottle":
-            rate = (
-                BottleRate.objects
-                .order_by("id")
-                .first()
-            )
+        plastic_bin_is_full = _bin_is_full(
+            "plastic-bin"
+        )
 
-            if rate is None:
-                raise RuntimeError(
-                    "Bottle rate is not configured."
+        tin_can_bin_is_full = _bin_is_full(
+            "tin-can-bin"
+        )
+
+        if label_key == "plastic bottle":
+            item_type = Transaction.PLASTIC_BOTTLE
+
+            if plastic_bin_is_full:
+                points_awarded = 0
+                pieces = 0
+                condition = Transaction.DIRTY
+                scan.status = BottleScan.REJECTED
+                rejection_reason = (
+                    BottleScan.PLASTIC_BIN_FULL
+                )
+            else:
+                rate = (
+                    BottleRate.objects
+                    .order_by("id")
+                    .first()
                 )
 
-            points_awarded = rate.points_per_bottle
-            pieces = 1
-            condition = Transaction.CLEAN
-            scan.status = BottleScan.ACCEPTED
+                if rate is None:
+                    raise RuntimeError(
+                        "Bottle rate is not configured."
+                    )
 
-            user.points_balance += points_awarded
-            user.total_pieces += 1
+                points_awarded = rate.points_per_bottle
+                pieces = 1
+                condition = Transaction.CLEAN
+                scan.status = BottleScan.ACCEPTED
+                rejection_reason = (
+                    BottleScan.NO_REJECTION
+                )
 
-            user.save(
-                update_fields=[
-                    "points_balance",
-                    "total_pieces",
-                ]
-            )
+                user.points_balance += points_awarded
+                user.total_pieces += 1
+
+                user.save(
+                    update_fields=[
+                        "points_balance",
+                        "total_pieces",
+                    ]
+                )
 
         elif label_key == "tin can":
+            item_type = Transaction.TIN_CAN
+
             metal_recently_detected = (
                 MetalStatus.objects.filter(
                     device_id="main-metal-sensor",
@@ -136,7 +177,23 @@ def complete_waiting_scan(
                 ).exists()
             )
 
-            if metal_recently_detected:
+            if not metal_recently_detected:
+                points_awarded = 0
+                pieces = 0
+                condition = Transaction.DIRTY
+                scan.status = BottleScan.REJECTED
+                rejection_reason = BottleScan.NO_METAL
+
+            elif tin_can_bin_is_full:
+                points_awarded = 0
+                pieces = 0
+                condition = Transaction.DIRTY
+                scan.status = BottleScan.REJECTED
+                rejection_reason = (
+                    BottleScan.TIN_CAN_BIN_FULL
+                )
+
+            else:
                 rate = (
                     TinCanRate.objects
                     .order_by("id")
@@ -152,6 +209,9 @@ def complete_waiting_scan(
                 pieces = 1
                 condition = Transaction.CLEAN
                 scan.status = BottleScan.ACCEPTED
+                rejection_reason = (
+                    BottleScan.NO_REJECTION
+                )
 
                 user.points_balance += points_awarded
                 user.total_pieces += 1
@@ -162,18 +222,15 @@ def complete_waiting_scan(
                         "total_pieces",
                     ]
                 )
-            else:
-                points_awarded = 0
-                pieces = 0
-                condition = Transaction.DIRTY
-                scan.status = BottleScan.REJECTED
 
         else:
             # other object
             points_awarded = 0
             pieces = 0
             condition = Transaction.DIRTY
+            item_type = Transaction.OTHER_OBJECT
             scan.status = BottleScan.REJECTED
+            rejection_reason = BottleScan.OTHER_OBJECT
 
         Transaction.objects.create(
             user=user,
@@ -181,12 +238,14 @@ def complete_waiting_scan(
             pieces=pieces,
             weight_kg=None,
             condition=condition,
+            item_type=item_type,
             points_delta=points_awarded,
         )
 
         scan.label = str(label).strip()
         scan.confidence_percent = confidence
         scan.points_awarded = points_awarded
+        scan.rejection_reason = rejection_reason
         scan.completed_at = now
 
         scan.save(
@@ -195,6 +254,7 @@ def complete_waiting_scan(
                 "label",
                 "confidence_percent",
                 "points_awarded",
+                "rejection_reason",
                 "completed_at",
             ]
         )
@@ -207,6 +267,7 @@ def complete_waiting_scan(
                 scan.confidence_percent
             ),
             "points_awarded": points_awarded,
+            "rejection_reason": rejection_reason,
             "new_balance": user.points_balance,
             "is_invalid": (
                 label_key == "other object"
