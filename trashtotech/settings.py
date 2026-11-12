@@ -159,7 +159,7 @@ ESP32_CAM_TIMEOUT_SECONDS = int(
 CAMERA_MONITOR_INTERVAL_SECONDS = float(
     os.environ.get(
         "CAMERA_MONITOR_INTERVAL_SECONDS",
-        "1",
+        "0.25",
     )
 )
 
@@ -173,6 +173,6 @@ CAMERA_MONITOR_MINIMUM_PERCENT = float(
 CAMERA_MONITOR_STABLE_FRAMES = int(
     os.environ.get(
         "CAMERA_MONITOR_STABLE_FRAMES",
-        "3",
+        "2",
     )
 )

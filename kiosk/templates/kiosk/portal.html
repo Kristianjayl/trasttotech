@@ -180,6 +180,13 @@
           <button type="button" class="redeem-btn" data-points="{{ r.points }}">Redeem</button>
         </div>
       {% endfor %}
+      <div class="tier-row" id="redeemAllRow">
+        <div>
+          <div class="tier-label">Redeem All Points</div>
+          <div class="tier-cost" id="redeemAllDetails">0 Points · 0 Minutes</div>
+        </div>
+        <button type="button" class="redeem-btn" id="redeemAllBtn">Redeem All</button>
+      </div>
     </div>
 
     <button type="button" class="cancel-link" data-close="trayRedeem">Cancel</button>
@@ -242,6 +249,6 @@
 <div class="toast" id="toast"></div>
 
 {{ state|json_script:"state-data" }}
-<script src="{% static 'kiosk/js/portal.js' %}?v=3"></script>
+<script src="{% static 'kiosk/js/portal.js' %}?v=4"></script>
 </body>
 </html>

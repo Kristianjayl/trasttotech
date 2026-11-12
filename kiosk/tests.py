@@ -464,3 +464,39 @@ class MetalStatusApiTests(TestCase):
 
         self.assertEqual(response.status_code, 403)
         self.assertFalse(MetalStatus.objects.exists())
+
+
+class RedeemAllWifiTests(TestCase):
+    url = "/api/redeem/all/"
+
+    def setUp(self):
+        self.user = KioskUser.objects.create(
+            device_id="redeem-all-user",
+            points_balance=61,
+        )
+        self.client.cookies["kiosk_uid"] = self.user.device_id
+
+    def test_redeems_the_complete_balance_at_two_minutes_per_point(self):
+        response = self.client.post(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["points"], 0)
+        self.assertEqual(response.json()["remaining_seconds"], 61 * 2 * 60)
+
+        self.user.refresh_from_db()
+        transaction = Transaction.objects.get(
+            user=self.user,
+            type=Transaction.WIFI_REDEEM,
+        )
+        self.assertEqual(self.user.points_balance, 0)
+        self.assertEqual(transaction.points_delta, -61)
+        self.assertEqual(transaction.wifi_minutes, 122)
+
+    def test_cannot_redeem_all_when_balance_is_zero(self):
+        self.user.points_balance = 0
+        self.user.save()
+
+        response = self.client.post(self.url)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["error"], "insufficient_points")

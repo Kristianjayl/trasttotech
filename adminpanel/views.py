@@ -61,8 +61,17 @@ def overview(request):
     )
     total_kg = Transaction.objects.filter(type=Transaction.DEPOSIT).aggregate(
         total=Sum("weight_kg"))["total"] or 0
-    points_issued = Transaction.objects.filter(type=Transaction.DEPOSIT).aggregate(
-        total=Sum("points_delta"))["total"] or 0
+    # Older demo transactions may have been created with different point
+    # values. The overview should reflect the currently collected items
+    # using the administrator's current rates.
+    bottle_rate = BottleRate.objects.order_by("id").first()
+    tin_can_rate = TinCanRate.objects.order_by("id").first()
+    bottle_points = bottle_rate.points_per_bottle if bottle_rate else 5
+    tin_can_points = tin_can_rate.points_per_tin_can if tin_can_rate else 5
+    points_issued = (
+        total_plastic_bottles * bottle_points
+        + total_tin_cans * tin_can_points
+    )
     wifi_sessions = Transaction.objects.filter(type=Transaction.WIFI_REDEEM).count()
     # A portal client reports its presence every eight seconds. Treat clients
     # seen during the last 30 seconds as connected to the prototype hotspot.
@@ -238,14 +247,29 @@ def staff_accounts_list(request):
 @role_required('admin')
 def staff_account_create(request):
     if request.method == "POST":
-        username = request.POST.get("username")
-        password = request.POST.get("password")
+        username = request.POST.get("username", "").strip()
+        password = request.POST.get("password", "")
         role = request.POST.get("role")
+        first_name = request.POST.get("first_name", "").strip()
+        last_name = request.POST.get("last_name", "").strip()
+        email = request.POST.get("email", "").strip()
         if User.objects.filter(username=username).exists():
             return render(request, "adminpanel/staff_account_form.html", {
-                "mode": "create", "error": "That username already exists."
+                "mode": "create", "error": "That username already exists.",
+                "submitted": request.POST,
             })
-        new_user = User.objects.create_user(username=username, password=password)
+        if email and User.objects.filter(email__iexact=email).exists():
+            return render(request, "adminpanel/staff_account_form.html", {
+                "mode": "create", "error": "That email address is already in use.",
+                "submitted": request.POST,
+            })
+        new_user = User.objects.create_user(
+            username=username,
+            password=password,
+            first_name=first_name,
+            last_name=last_name,
+            email=email,
+        )
         StaffProfile.objects.create(user=new_user, role=role)
         return redirect("staff_accounts_list")
     return render(request, "adminpanel/staff_account_form.html", {"mode": "create"})
@@ -255,12 +279,26 @@ def staff_account_create(request):
 def staff_account_edit(request, profile_id):
     profile = get_object_or_404(StaffProfile, id=profile_id)
     if request.method == "POST":
+        first_name = request.POST.get("first_name", "").strip()
+        last_name = request.POST.get("last_name", "").strip()
+        email = request.POST.get("email", "").strip()
+        if email and User.objects.exclude(id=profile.user_id).filter(
+            email__iexact=email
+        ).exists():
+            return render(request, "adminpanel/staff_account_form.html", {
+                "mode": "edit",
+                "profile": profile,
+                "error": "That email address is already in use.",
+            })
         profile.role = request.POST.get("role")
         profile.save()
+        profile.user.first_name = first_name
+        profile.user.last_name = last_name
+        profile.user.email = email
         new_password = request.POST.get("password")
         if new_password:
             profile.user.set_password(new_password)
-            profile.user.save()
+        profile.user.save()
         return redirect("staff_accounts_list")
     return render(request, "adminpanel/staff_account_form.html", {"mode": "edit", "profile": profile})
 

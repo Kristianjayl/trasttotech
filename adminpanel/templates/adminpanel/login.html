@@ -1,23 +1,34 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>EcoLink — Staff Login</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EcoLink Staff Login</title>
 <style>
-  body{ font-family: sans-serif; background:#1F2A24; color:#fff; display:flex; align-items:center; justify-content:center; height:100vh; margin:0; }
-  form{ background:#2A3830; padding:32px; border-radius:12px; width:280px; }
-  h2{ margin-top:0; }
-  input{ width:100%; padding:10px; margin-bottom:12px; border-radius:6px; border:1px solid #444; background:#1a231e; color:#fff; }
-  button{ width:100%; padding:10px; background:#4D9B3D; border:none; border-radius:6px; color:#fff; font-weight:bold; cursor:pointer; }
+  :root{--ink:#14241c;--green:#63c94f;--green-dark:#378a31;--muted:#69776e}
+  *{box-sizing:border-box}
+  body{min-height:100vh;margin:0;display:grid;place-items:center;padding:24px;font-family:Arial,sans-serif;color:var(--ink);background:radial-gradient(circle at top left,#dff3d9 0,transparent 34%),linear-gradient(135deg,#17271e,#264535)}
+  .login-card{width:min(100%,430px);padding:38px;border:1px solid rgba(255,255,255,.55);border-radius:22px;background:rgba(248,250,246,.97);box-shadow:0 24px 65px rgba(0,0,0,.27)}
+  .mark{width:48px;height:48px;display:grid;place-items:center;margin-bottom:22px;border-radius:14px;background:var(--green);font-size:22px;font-weight:800;color:#113117}
+  h1{margin:0 0 8px;font-size:28px;letter-spacing:-.7px}.sub{margin:0 0 28px;color:var(--muted);line-height:1.45}
+  label{display:block;margin:16px 0 7px;font-weight:700;font-size:14px}input{width:100%;padding:13px 14px;border:1px solid #cbd6ce;border-radius:10px;background:#fff;font-size:16px;color:var(--ink)}input:focus{outline:3px solid rgba(99,201,79,.25);border-color:var(--green-dark)}
+  button{width:100%;margin-top:24px;padding:13px;border:0;border-radius:10px;background:var(--green-dark);color:#fff;font-size:16px;font-weight:700;cursor:pointer}button:hover{background:#2c7428}.errorlist,.errornote{margin:0 0 16px;padding:11px 12px;border-radius:9px;background:#ffe8e4;color:#a53627;list-style:none;font-size:14px}
+  .foot{margin:22px 0 0;text-align:center;color:var(--muted);font-size:12px}
 </style>
 </head>
 <body>
-  <form method="post">
+  <form class="login-card" method="post">
     {% csrf_token %}
-    <h2>EcoLink Admin</h2>
-    {{ form.username.label_tag }} {{ form.username }}
-    {{ form.password.label_tag }} {{ form.password }}
-    <button type="submit">Log In</button>
+    <div class="mark">E</div>
+    <h1>EcoLink Admin</h1>
+    <p class="sub">Sign in to manage recycling activity, bins, and WiFi rewards.</p>
+    {{ form.non_field_errors }}
+    <label for="id_username">Username</label>
+    {{ form.username }}
+    <label for="id_password">Password</label>
+    {{ form.password }}
+    <button type="submit">Sign in</button>
+    <p class="foot">EcoLink Recycling-Based WiFi Support System</p>
   </form>
 </body>
 </html>

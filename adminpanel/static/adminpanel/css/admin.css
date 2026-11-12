@@ -176,7 +176,7 @@
   .pill.red{ background:#fdece8; color:#b7432c; }
   .pill.gray{ background:#edf1ee; color:#59675f; }
 
-  input[type=text], input[type=number], input[type=password], select, textarea{
+  input[type=text], input[type=number], input[type=password], input[type=email], select, textarea{
     width:100%; background:#fff; border:1px solid var(--border-soft); color:var(--ink);
     padding:11px 13px; border-radius:7px; font-family:var(--body); font-size:15px;
   }

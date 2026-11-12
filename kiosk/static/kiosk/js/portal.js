@@ -39,9 +39,17 @@
     const rb = document.getElementById('redeemBalance');
     if (rb) rb.textContent = v;
     document.querySelectorAll('.redeem-btn').forEach(btn => {
+      if (btn.id === 'redeemAllBtn') {
+        btn.disabled = v <= 0;
+        return;
+      }
       const cost = Number(btn.dataset.points);
       btn.disabled = v < cost;
     });
+    const redeemAllDetails = document.getElementById('redeemAllDetails');
+    if (redeemAllDetails) {
+      redeemAllDetails.textContent = `${v} Points · ${v * 2} Minutes`;
+    }
   }
 
   setInterval(() => {
@@ -430,6 +438,7 @@ function showBinFullFailure(message){
   });
 
   document.querySelectorAll('.redeem-btn').forEach(btn => {
+    if (btn.id === 'redeemAllBtn') return;
     btn.addEventListener('click', () => {
       const points = Number(btn.dataset.points);
       csrfFetch('/api/redeem/wifi/', {method:'POST', body: JSON.stringify({points})})
@@ -447,6 +456,24 @@ function showBinFullFailure(message){
           closeTray('trayRedeem');
         });
     });
+  });
+
+  document.getElementById('redeemAllBtn').addEventListener('click', () => {
+    if (Number(document.getElementById('pointsValue').textContent) <= 0) return;
+    csrfFetch('/api/redeem/all/', {method:'POST'})
+      .then(async r => {
+        const d = await r.json();
+        if (!r.ok) {
+          showToast(d.error === 'insufficient_points' ? 'No points available' : 'Redeem failed', 'error');
+          return;
+        }
+        setPoints(d.points);
+        localRemaining = d.remaining_seconds;
+        paused = false;
+        renderTimer();
+        showToast('All points redeemed for WiFi time', 'success');
+        closeTray('trayRedeem');
+      });
   });
 
   document.getElementById('voucherSubmit').addEventListener('click', () => {

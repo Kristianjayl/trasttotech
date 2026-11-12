@@ -26,6 +26,7 @@ from .models import (
 COOKIE_NAME = "kiosk_uid"
 
 BOTTLE_SCAN_TIMEOUT_SECONDS = 90
+REDEEM_ALL_MINUTES_PER_POINT = 2
 
 
 def get_or_create_user(request):
@@ -469,6 +470,36 @@ def api_redeem_wifi(request):
     user.save()
     Transaction.objects.create(user=user, type=Transaction.WIFI_REDEEM,
                                 points_delta=-tier.points, wifi_minutes=tier.minutes)
+    return JsonResponse({"ok": True, **_user_state(user)})
+
+
+@require_POST
+def api_redeem_all_wifi(request):
+    """Spend a user's complete balance at the fixed all-points rate."""
+    user, uid, _ = get_or_create_user(request)
+
+    with transaction.atomic():
+        user = KioskUser.objects.select_for_update().get(pk=user.pk)
+        points_cost = user.points_balance
+        if points_cost <= 0:
+            return JsonResponse({"error": "insufficient_points"}, status=400)
+
+        wifi_minutes = points_cost * REDEEM_ALL_MINUTES_PER_POINT
+        user.points_balance = 0
+        current_remaining = _remaining_seconds(user)
+        user.remaining_seconds = current_remaining + wifi_minutes * 60
+        user.session_expires_at = timezone.now() + timedelta(
+            seconds=user.remaining_seconds
+        )
+        user.paused = False
+        user.save()
+        Transaction.objects.create(
+            user=user,
+            type=Transaction.WIFI_REDEEM,
+            points_delta=-points_cost,
+            wifi_minutes=wifi_minutes,
+        )
+
     return JsonResponse({"ok": True, **_user_state(user)})
 
 

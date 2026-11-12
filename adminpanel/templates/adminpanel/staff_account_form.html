@@ -11,8 +11,13 @@
     {% if mode == "create" %}
     <div class="field-wrap">
       <label class="field">Username</label>
-      <input type="text" name="username" required>
+      <input type="text" name="username" value="{{ submitted.username|default:'' }}" required>
     </div>
+    <div class="field-row">
+      <div class="field-wrap"><label class="field">First name</label><input type="text" name="first_name" value="{{ submitted.first_name|default:'' }}" required></div>
+      <div class="field-wrap"><label class="field">Last name</label><input type="text" name="last_name" value="{{ submitted.last_name|default:'' }}" required></div>
+    </div>
+    <div class="field-wrap"><label class="field">Email address</label><input type="email" name="email" value="{{ submitted.email|default:'' }}" required></div>
     <div class="field-wrap">
       <label class="field">Password</label>
       <input type="password" name="password" required>
@@ -22,6 +27,11 @@
       <label class="field">Username</label>
       <input type="text" value="{{ profile.user.username }}" disabled>
     </div>
+    <div class="field-row">
+      <div class="field-wrap"><label class="field">First name</label><input type="text" name="first_name" value="{{ profile.user.first_name }}" required></div>
+      <div class="field-wrap"><label class="field">Last name</label><input type="text" name="last_name" value="{{ profile.user.last_name }}" required></div>
+    </div>
+    <div class="field-wrap"><label class="field">Email address</label><input type="email" name="email" value="{{ profile.user.email }}" required></div>
     <div class="field-wrap">
       <label class="field">New password (leave blank to keep current)</label>
       <input type="password" name="password">
