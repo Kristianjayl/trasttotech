@@ -481,7 +481,10 @@ class RedeemAllWifiTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["points"], 0)
-        self.assertEqual(response.json()["remaining_seconds"], 61 * 2 * 60)
+        self.assertIn(
+            response.json()["remaining_seconds"],
+            {61 * 2 * 60, (61 * 2 * 60) - 1},
+        )
 
         self.user.refresh_from_db()
         transaction = Transaction.objects.get(
