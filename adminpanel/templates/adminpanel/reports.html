@@ -4,6 +4,25 @@
 {% block page_sub %}Plastic bottles and tin cans collected over time{% endblock %}
 
 {% block content %}
+<section class="card" style="margin-bottom:16px;">
+  <div class="reports-card-head">
+    <div>
+      <h3>Current collection estimate</h3>
+      <div class="hint">Uses the current price per kg from Rates.</div>
+    </div>
+    <strong>₱{{ total_collection_value|floatformat:2 }}</strong>
+  </div>
+  <div class="reports-pie-totals">
+    <div>
+      <span>Plastic bottles</span>
+      <strong>{{ plastic_kg|floatformat:2 }} kg × ₱{{ plastic_price_per_kg|floatformat:2 }}/kg = ₱{{ plastic_value|floatformat:2 }}</strong>
+    </div>
+    <div>
+      <span>Tin cans</span>
+      <strong>{{ tin_can_kg|floatformat:2 }} kg × ₱{{ tin_can_price_per_kg|floatformat:2 }}/kg = ₱{{ tin_can_value|floatformat:2 }}</strong>
+    </div>
+  </div>
+</section>
 <div class="reports-grid">
   <section class="card reports-monthly-card">
     <div class="reports-card-head">

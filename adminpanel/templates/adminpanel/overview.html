@@ -17,13 +17,17 @@
   "
 >
   <div class="card kpi">
-    <div class="label">Total plastic bottles collected</div>
-    <div class="value">{{ total_plastic_bottles }}</div>
+    <div class="label">Today's collection</div>
+    <div class="value">{{ today_total_kg|floatformat:2 }} kg</div>
+    <div class="hint">Plastic: {{ today_plastic_kg|floatformat:2 }} kg</div>
+    <div class="hint">Tin cans: {{ today_tin_can_kg|floatformat:2 }} kg</div>
   </div>
 
   <div class="card kpi">
-    <div class="label">Total tin cans collected</div>
-    <div class="value">{{ total_tin_cans }}</div>
+    <div class="label">This month's collection</div>
+    <div class="value">{{ month_total_kg|floatformat:2 }} kg</div>
+    <div class="hint">Plastic: {{ month_plastic_kg|floatformat:2 }} kg</div>
+    <div class="hint">Tin cans: {{ month_tin_can_kg|floatformat:2 }} kg</div>
   </div>
 
   <div class="card kpi">

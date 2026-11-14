@@ -1,0 +1,53 @@
+{% extends "adminpanel/base.html" %}
+{% block title %}Collection Weights{% endblock %}
+{% block page_title %}Collection Weights{% endblock %}
+{% block page_sub %}Record the actual weight after emptying a separated bin{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width:720px; margin-bottom:16px;">
+  <h3>Record collection weight</h3>
+  <div class="hint" style="margin:6px 0 16px;">Examples: 0.50 kg, 1.25 kg, or 2.00 kg.</div>
+  {% if error %}<div class="errornote">{{ error }}</div>{% endif %}
+  <form method="post">
+    {% csrf_token %}
+    <div class="field-wrap">
+      <label class="field" for="material_type">Material</label>
+      <select id="material_type" name="material_type" required>
+        {% for value, label in material_choices %}
+          <option value="{{ value }}">{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field-wrap">
+      <label class="field" for="weight_kg">Weight (kg)</label>
+      <input id="weight_kg" type="number" name="weight_kg" min="0.01" step="0.01" placeholder="Example: 1.50" required>
+    </div>
+    <div class="field-wrap">
+      <label class="field" for="note">Note (optional)</label>
+      <input id="note" type="text" name="note" maxlength="200" placeholder="Example: November bin collection">
+    </div>
+    <button type="submit" class="btn primary">Save Collection Weight</button>
+  </form>
+</div>
+
+<div class="card">
+  <h3>Recent collection entries</h3>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Date</th><th>Material</th><th>Weight</th><th>Note</th></tr></thead>
+      <tbody>
+        {% for entry in entries %}
+          <tr class="rowhover">
+            <td>{{ entry.recorded_at|date:"M d, Y h:i A" }}</td>
+            <td>{{ entry.get_material_type_display }}</td>
+            <td>{{ entry.weight_kg|floatformat:2 }} kg</td>
+            <td>{{ entry.note|default:"-" }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="4" class="table-empty">No collection weights recorded yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

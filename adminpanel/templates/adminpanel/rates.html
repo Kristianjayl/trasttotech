@@ -17,6 +17,16 @@
           value="{{ bottle_rate.points_per_bottle }}"
         >
       </div>
+      <div class="field-wrap">
+        <label class="field">Current plastic bottle price per kg (PHP)</label>
+        <input
+          type="number"
+          name="plastic_price_per_kg"
+          min="0"
+          step="0.01"
+          value="{{ bottle_rate.market_price_per_kg }}"
+        >
+      </div>
     </div>
     <div class="card">
       <h3 style="margin-bottom:14px;">Tin Can Points</h3>
@@ -26,6 +36,16 @@
           type="number"
           name="points_per_tin_can"
           value="{{ tin_can_rate.points_per_tin_can }}"
+        >
+      </div>
+      <div class="field-wrap">
+        <label class="field">Current tin can price per kg (PHP)</label>
+        <input
+          type="number"
+          name="tin_can_price_per_kg"
+          min="0"
+          step="0.01"
+          value="{{ tin_can_rate.market_price_per_kg }}"
         >
       </div>
     </div>

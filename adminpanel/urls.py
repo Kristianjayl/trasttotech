@@ -22,6 +22,7 @@ urlpatterns = [
     # ===================== TRANSACTIONS & REWARDS =====================
     path("transactions/", views.transactions_list, name="staff_transactions"),
     path("rewards/", views.rewards, name="staff_rewards"),
+    path("collections/", views.collection_entries, name="staff_collection_entries"),
 
     # ===================== ADMIN-ONLY: RATES & SETTINGS =====================
     # Restricted via @role_required('admin') in views.py -- SK cannot access these.

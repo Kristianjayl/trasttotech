@@ -8,6 +8,7 @@ from datetime import timedelta
 from django.db.models.functions import TruncMonth, TruncYear
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
+from decimal import Decimal
 
 from .decorators import role_required
 from .models import StaffProfile
@@ -19,6 +20,7 @@ from kiosk.models import (
     WifiRate,
     BinStatus,
     BottleScan,
+    CollectionEntry,
     TinCanRate,
 )
 
@@ -37,6 +39,7 @@ class StaffLoginView(LoginView):
 @login_required
 def overview(request):
     today = timezone.now().date()
+    month_start = today.replace(day=1)
 
     total_pieces = Transaction.objects.filter(type=Transaction.DEPOSIT).aggregate(
         total=Sum("pieces"))["total"] or 0
@@ -59,8 +62,6 @@ def overview(request):
         .aggregate(total=Sum("pieces"))["total"]
         or 0
     )
-    total_kg = Transaction.objects.filter(type=Transaction.DEPOSIT).aggregate(
-        total=Sum("weight_kg"))["total"] or 0
     # Older demo transactions may have been created with different point
     # values. The overview should reflect the currently collected items
     # using the administrator's current rates.
@@ -81,6 +82,26 @@ def overview(request):
     internet_minutes = Transaction.objects.filter(type=Transaction.WIFI_REDEEM).aggregate(
         total=Sum("wifi_minutes"))["total"] or 0
 
+    def collection_weight(start_date):
+        weights = (
+            CollectionEntry.objects
+            .filter(
+                recorded_at__date__gte=start_date,
+            )
+            .values("material_type")
+            .annotate(total=Sum("weight_kg"))
+        )
+        totals = {
+            CollectionEntry.PLASTIC_BOTTLE: Decimal("0"),
+            CollectionEntry.TIN_CAN: Decimal("0"),
+        }
+        for row in weights:
+            totals[row["material_type"]] = row["total"] or Decimal("0")
+        return totals
+
+    today_weight = collection_weight(today)
+    month_weight = collection_weight(month_start)
+
     recent_transactions = Transaction.objects.select_related("user").order_by("-created_at")[:10]
 
     plastic_bin_status = BinStatus.objects.filter(
@@ -95,7 +116,18 @@ def overview(request):
     "total_pieces": total_pieces,
     "total_plastic_bottles": total_plastic_bottles,
     "total_tin_cans": total_tin_cans,
-    "total_kg": round(total_kg, 2),
+    "today_plastic_kg": today_weight[CollectionEntry.PLASTIC_BOTTLE],
+    "today_tin_can_kg": today_weight[CollectionEntry.TIN_CAN],
+    "today_total_kg": (
+        today_weight[CollectionEntry.PLASTIC_BOTTLE]
+        + today_weight[CollectionEntry.TIN_CAN]
+    ),
+    "month_plastic_kg": month_weight[CollectionEntry.PLASTIC_BOTTLE],
+    "month_tin_can_kg": month_weight[CollectionEntry.TIN_CAN],
+    "month_total_kg": (
+        month_weight[CollectionEntry.PLASTIC_BOTTLE]
+        + month_weight[CollectionEntry.TIN_CAN]
+    ),
     "points_issued": points_issued,
     "wifi_sessions": wifi_sessions,
     "active_users": active_users,
@@ -177,6 +209,38 @@ def rewards(request):
     return render(request, "adminpanel/rewards.html", {"vouchers": vouchers, "stats": stats})
 
 
+@login_required
+def collection_entries(request):
+    error = ""
+    if request.method == "POST":
+        material_type = request.POST.get("material_type")
+        try:
+            weight_kg = Decimal(request.POST.get("weight_kg") or "0")
+        except Exception:
+            weight_kg = Decimal("0")
+
+        if material_type not in {
+            CollectionEntry.PLASTIC_BOTTLE,
+            CollectionEntry.TIN_CAN,
+        }:
+            error = "Choose plastic bottles or tin cans."
+        elif weight_kg <= 0:
+            error = "Enter a weight greater than 0 kg."
+        else:
+            CollectionEntry.objects.create(
+                material_type=material_type,
+                weight_kg=weight_kg,
+                note=request.POST.get("note", "").strip(),
+            )
+            return redirect("staff_collection_entries")
+
+    return render(request, "adminpanel/collection_entries.html", {
+        "entries": CollectionEntry.objects.all()[:50],
+        "error": error,
+        "material_choices": CollectionEntry.MATERIAL_CHOICES,
+    })
+
+
 # ============================================================
 # ADMIN-ONLY: RATES & SETTINGS
 # Restricted via @role_required('admin') -- SK cannot access these.
@@ -200,10 +264,18 @@ def rates(request):
         bottle_rate.points_per_bottle = int(
             request.POST.get("points_per_bottle")
         )
+        bottle_rate.market_price_per_kg = max(
+            Decimal("0"),
+            Decimal(request.POST.get("plastic_price_per_kg") or "0"),
+        )
         bottle_rate.save()
 
         tin_can_rate.points_per_tin_can = int(
             request.POST.get("points_per_tin_can")
+        )
+        tin_can_rate.market_price_per_kg = max(
+            Decimal("0"),
+            Decimal(request.POST.get("tin_can_price_per_kg") or "0"),
         )
         tin_can_rate.save()
 
@@ -428,12 +500,46 @@ def reports(request):
         pivot(yearly_raw, "%Y")
     )
 
+    weight_totals = CollectionEntry.objects.values("material_type").annotate(
+        total=Sum("weight_kg")
+    )
+    collected_kg = {
+        CollectionEntry.PLASTIC_BOTTLE: Decimal("0"),
+        CollectionEntry.TIN_CAN: Decimal("0"),
+    }
+    for row in weight_totals:
+        collected_kg[row["material_type"]] = row["total"] or Decimal("0")
+
+    bottle_rate = BottleRate.objects.order_by("id").first()
+    tin_can_rate = TinCanRate.objects.order_by("id").first()
+    plastic_price = (
+        bottle_rate.market_price_per_kg if bottle_rate else Decimal("0")
+    )
+    tin_can_price = (
+        tin_can_rate.market_price_per_kg if tin_can_rate else Decimal("0")
+    )
+    plastic_value = (
+        collected_kg[CollectionEntry.PLASTIC_BOTTLE]
+        * plastic_price
+    )
+    tin_can_value = (
+        collected_kg[CollectionEntry.TIN_CAN]
+        * tin_can_price
+    )
+
     return render(
         request,
         "adminpanel/reports.html",
         {
             "monthly": monthly,
             "yearly": yearly,
+            "plastic_kg": collected_kg[CollectionEntry.PLASTIC_BOTTLE],
+            "tin_can_kg": collected_kg[CollectionEntry.TIN_CAN],
+            "plastic_price_per_kg": plastic_price,
+            "tin_can_price_per_kg": tin_can_price,
+            "plastic_value": plastic_value,
+            "tin_can_value": tin_can_value,
+            "total_collection_value": plastic_value + tin_can_value,
         },
     )
 

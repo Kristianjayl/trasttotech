@@ -27,6 +27,11 @@ class KioskUser(models.Model):
 # this is a record of a rate for redeeming points for bottles
 class BottleRate(models.Model):
     points_per_bottle = models.IntegerField(default=5)
+    market_price_per_kg = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+    )
 
     def __str__(self):
         return f"{self.points_per_bottle} pts per bottle"
@@ -34,6 +39,11 @@ class BottleRate(models.Model):
 # configurable reward for each accepted tin can
 class TinCanRate(models.Model):
     points_per_tin_can = models.IntegerField(default=5)
+    market_price_per_kg = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+    )
 
     def __str__(self):
         return f"{self.points_per_tin_can} pts per tin can"
@@ -90,6 +100,34 @@ class Transaction(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+
+
+class CollectionEntry(models.Model):
+    """Actual material weight recorded by staff after emptying a bin."""
+
+    PLASTIC_BOTTLE = "plastic_bottle"
+    TIN_CAN = "tin_can"
+    MATERIAL_CHOICES = [
+        (PLASTIC_BOTTLE, "Plastic Bottle"),
+        (TIN_CAN, "Tin Can"),
+    ]
+
+    material_type = models.CharField(
+        max_length=20,
+        choices=MATERIAL_CHOICES,
+    )
+    weight_kg = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+    )
+    note = models.CharField(max_length=200, blank=True)
+    recorded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-recorded_at"]
+
+    def __str__(self):
+        return f"{self.get_material_type_display()}: {self.weight_kg} kg"
 
 # this is a record of a voucher that can be redeemed for points
 class Voucher(models.Model):

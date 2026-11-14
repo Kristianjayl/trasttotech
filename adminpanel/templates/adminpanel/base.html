@@ -47,6 +47,11 @@
       Rewards
     </a>
 
+    <a class="navitem {% if request.resolver_match.url_name == 'staff_collection_entries' %}active{% endif %}"
+       href="{% url 'staff_collection_entries' %}">
+      Collection Weights
+    </a>
+
     {% if user.staffprofile.role == "admin" %}
       <a class="navitem {% if request.resolver_match.url_name == 'staff_rates' %}active{% endif %}"
          href="{% url 'staff_rates' %}">
