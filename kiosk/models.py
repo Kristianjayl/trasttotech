@@ -95,11 +95,19 @@ class Transaction(models.Model):
         blank=True,
     )
     points_delta = models.IntegerField()
+    # Balance immediately after this transaction.  This keeps the history
+    # accurate even when the user's balance changes again later.
+    points_balance_after = models.IntegerField(null=True, blank=True)
     wifi_minutes = models.IntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ["-created_at"]
+
+    @property
+    def points_used(self):
+        """Positive amount spent for redemption/voucher transactions."""
+        return abs(self.points_delta) if self.points_delta < 0 else None
 
 
 class CollectionEntry(models.Model):

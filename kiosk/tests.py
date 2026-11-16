@@ -51,6 +51,7 @@ class PlasticBottleAcceptanceTests(TestCase):
             Transaction.PLASTIC_BOTTLE,
         )
         self.assertEqual(transaction.points_delta, 5)
+        self.assertEqual(transaction.points_balance_after, 5)
         self.assertEqual(self.user.points_balance, 5)
 
     def test_plastic_bottle_is_rejected_when_plastic_bin_is_full(self):
@@ -494,6 +495,7 @@ class RedeemAllWifiTests(TestCase):
         self.assertEqual(self.user.points_balance, 0)
         self.assertEqual(transaction.points_delta, -61)
         self.assertEqual(transaction.wifi_minutes, 122)
+        self.assertEqual(transaction.points_balance_after, 0)
 
     def test_cannot_redeem_all_when_balance_is_zero(self):
         self.user.points_balance = 0

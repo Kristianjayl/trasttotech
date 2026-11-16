@@ -469,7 +469,8 @@ def api_redeem_wifi(request):
     user.paused = False
     user.save()
     Transaction.objects.create(user=user, type=Transaction.WIFI_REDEEM,
-                                points_delta=-tier.points, wifi_minutes=tier.minutes)
+                                points_delta=-tier.points, wifi_minutes=tier.minutes,
+                                points_balance_after=user.points_balance)
     return JsonResponse({"ok": True, **_user_state(user)})
 
 
@@ -498,6 +499,7 @@ def api_redeem_all_wifi(request):
             type=Transaction.WIFI_REDEEM,
             points_delta=-points_cost,
             wifi_minutes=wifi_minutes,
+            points_balance_after=user.points_balance,
         )
 
     return JsonResponse({"ok": True, **_user_state(user)})
@@ -534,7 +536,12 @@ def api_voucher_generate(request):
     user.save()
     code = "VC-" + uuid.uuid4().hex[:6].upper()
     Voucher.objects.create(code=code, user=user, points_used=points_cost)
-    Transaction.objects.create(user=user, type=Transaction.VOUCHER, points_delta=-points_cost)
+    Transaction.objects.create(
+        user=user,
+        type=Transaction.VOUCHER,
+        points_delta=-points_cost,
+        points_balance_after=user.points_balance,
+    )
     return JsonResponse({"ok": True, "code": code, "new_balance": user.points_balance})
 
 

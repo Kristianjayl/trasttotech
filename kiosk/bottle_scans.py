@@ -240,6 +240,7 @@ def complete_waiting_scan(
             condition=condition,
             item_type=item_type,
             points_delta=points_awarded,
+            points_balance_after=user.points_balance,
         )
 
         scan.label = str(label).strip()

@@ -269,7 +269,9 @@
           <th>User</th>
           <th>Type</th>
           <th>Pieces</th>
-          <th>Points</th>
+          <th>Points Used</th>
+          <th>Points Left</th>
+          <th>WiFi Min</th>
         </tr>
       </thead>
 
@@ -284,12 +286,14 @@
               </span>
             </td>
             <td>{{ t.pieces|default:"-" }}</td>
-            <td>{{ t.points_delta }}</td>
+            <td>{{ t.points_used|default:"-" }}</td>
+            <td>{{ t.points_balance_after|default:"-" }}</td>
+            <td>{{ t.wifi_minutes|default:"-" }}</td>
           </tr>
         {% empty %}
           <tr>
             <td
-              colspan="5"
+              colspan="7"
               class="table-empty"
             >
               No transactions yet.
