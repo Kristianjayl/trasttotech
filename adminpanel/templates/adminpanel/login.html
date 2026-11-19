@@ -5,30 +5,49 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>EcoLink Staff Login</title>
 <style>
-  :root{--ink:#14241c;--green:#63c94f;--green-dark:#378a31;--muted:#69776e}
+  :root{--ink:#17251f;--green:#67c950;--green-dark:#398b35;--pale:#f5f8f4;--muted:#718077}
   *{box-sizing:border-box}
-  body{min-height:100vh;margin:0;display:grid;place-items:center;padding:24px;font-family:Arial,sans-serif;color:var(--ink);background:radial-gradient(circle at top left,#dff3d9 0,transparent 34%),linear-gradient(135deg,#17271e,#264535)}
-  .login-card{width:min(100%,430px);padding:38px;border:1px solid rgba(255,255,255,.55);border-radius:22px;background:rgba(248,250,246,.97);box-shadow:0 24px 65px rgba(0,0,0,.27)}
-  .mark{width:48px;height:48px;display:grid;place-items:center;margin-bottom:22px;border-radius:14px;background:var(--green);font-size:22px;font-weight:800;color:#113117}
-  h1{margin:0 0 8px;font-size:28px;letter-spacing:-.7px}.sub{margin:0 0 28px;color:var(--muted);line-height:1.45}
-  label{display:block;margin:16px 0 7px;font-weight:700;font-size:14px}input{width:100%;padding:13px 14px;border:1px solid #cbd6ce;border-radius:10px;background:#fff;font-size:16px;color:var(--ink)}input:focus{outline:3px solid rgba(99,201,79,.25);border-color:var(--green-dark)}
-  button{width:100%;margin-top:24px;padding:13px;border:0;border-radius:10px;background:var(--green-dark);color:#fff;font-size:16px;font-weight:700;cursor:pointer}button:hover{background:#2c7428}.errorlist,.errornote{margin:0 0 16px;padding:11px 12px;border-radius:9px;background:#ffe8e4;color:#a53627;list-style:none;font-size:14px}
+  body{min-height:100vh;margin:0;padding:26px;font-family:Arial,sans-serif;color:var(--ink);background:#edf2ed}
+  .login-shell{width:min(100%,1120px);min-height:650px;margin:auto;display:grid;grid-template-columns:1.03fr 1fr;overflow:hidden;border:1px solid #d6dfd7;border-radius:26px;background:#fff;box-shadow:0 25px 70px rgba(20,36,28,.16)}
+  .system-panel{position:relative;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden;padding:40px;background:linear-gradient(160deg,rgba(13,64,40,.88),rgba(17,39,29,.94)),radial-gradient(circle at 22% 18%,#84d761 0 2%,transparent 2.4%),radial-gradient(circle at 82% 22%,rgba(116,206,82,.38) 0 8%,transparent 8.3%),#183d2a;color:#fff}
+  .system-panel:before,.system-panel:after{position:absolute;content:"";border-radius:50%;border:1px solid rgba(191,255,168,.18)}
+  .system-panel:before{width:510px;height:510px;right:-245px;bottom:-240px}.system-panel:after{width:320px;height:320px;left:-165px;bottom:75px}
+  .brand,.system-copy{position:relative;z-index:1}.brand{display:flex;align-items:center;gap:12px;font-size:25px;font-weight:800;letter-spacing:-1px}.mark{width:46px;height:46px;display:grid;place-items:center;border:1px solid rgba(255,255,255,.38);border-radius:14px;background:rgba(255,255,255,.13);font-size:24px}
+  .system-copy{max-width:380px;margin:0 0 25px}.eyebrow{margin:0 0 13px;color:#c5f6ad;font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase}.system-copy h2{margin:0 0 14px;font-size:42px;line-height:1.08;letter-spacing:-1.8px}.system-copy p{max-width:335px;margin:0;color:#e1f0e3;font-size:16px;line-height:1.55}.features{display:flex;gap:10px;flex-wrap:wrap;margin-top:25px}.features span{padding:8px 10px;border:1px solid rgba(225,240,227,.25);border-radius:999px;background:rgba(255,255,255,.1);font-size:12px}
+  .login-panel{display:grid;place-items:center;padding:46px;background:var(--pale)}
+  .login-card{width:min(100%,430px)}
+  h1{margin:0 0 10px;font-size:35px;letter-spacing:-1.3px}.sub{margin:0 0 31px;color:var(--muted);line-height:1.5}
+  label{display:block;margin:17px 0 8px;font-weight:700;font-size:14px}input{width:100%;padding:14px 15px;border:1px solid #cbd6ce;border-radius:10px;background:#fff;font-size:16px;color:var(--ink)}input:focus{outline:3px solid rgba(99,201,79,.24);border-color:var(--green-dark)}
+  button{width:100%;margin-top:27px;padding:14px;border:0;border-radius:10px;background:var(--green-dark);color:#fff;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 8px 18px rgba(57,139,53,.19)}button:hover{background:#2d742a}.errorlist,.errornote{margin:0 0 16px;padding:11px 12px;border-radius:9px;background:#ffe8e4;color:#a53627;list-style:none;font-size:14px}
   .foot{margin:22px 0 0;text-align:center;color:var(--muted);font-size:12px}
+  @media (max-width:760px){body{padding:14px}.login-shell{grid-template-columns:1fr;min-height:0}.system-panel{min-height:270px;padding:28px}.system-copy{margin:38px 0 0}.system-copy h2{font-size:30px}.login-panel{padding:38px 26px}}
 </style>
 </head>
 <body>
-  <form class="login-card" method="post">
-    {% csrf_token %}
-    <div class="mark">E</div>
-    <h1>EcoLink Admin</h1>
-    <p class="sub">Sign in to manage recycling activity, bins, and WiFi rewards.</p>
-    {{ form.non_field_errors }}
-    <label for="id_username">Username</label>
-    {{ form.username }}
-    <label for="id_password">Password</label>
-    {{ form.password }}
-    <button type="submit">Sign in</button>
-    <p class="foot">EcoLink Recycling-Based WiFi Support System</p>
-  </form>
+  <main class="login-shell">
+    <section class="system-panel" aria-label="EcoLink system introduction">
+      <div class="brand"><span class="mark">E</span>EcoLink</div>
+      <div class="system-copy">
+        <p class="eyebrow">Recycling-based WiFi system</p>
+        <h2>Turn waste into connection.</h2>
+        <p>Manage recycling activity, bin status, points, and WiFi rewards from one place.</p>
+        <div class="features"><span>Plastic bottles</span><span>Tin cans</span><span>WiFi rewards</span></div>
+      </div>
+    </section>
+    <section class="login-panel">
+      <form class="login-card" method="post">
+        {% csrf_token %}
+        <h1>Welcome back</h1>
+        <p class="sub">Sign in to access the EcoLink staff dashboard.</p>
+        {{ form.non_field_errors }}
+        <label for="id_username">Username</label>
+        {{ form.username }}
+        <label for="id_password">Password</label>
+        {{ form.password }}
+        <button type="submit">Sign in</button>
+        <p class="foot">EcoLink Recycling-Based WiFi Support System</p>
+      </form>
+    </section>
+  </main>
 </body>
 </html>
