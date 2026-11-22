@@ -118,7 +118,7 @@
     document.getElementById('weighResult').innerHTML = '';
   }
 
-  document.getElementById('btnInsert').addEventListener('click', async () => {
+  async function startInsertScan(){
     resetWeighUI();
     openTray('trayInsert');
 
@@ -154,7 +154,12 @@
     catch (error) {
       showScanFailure(error.message);
     }
-  });
+  }
+
+  document.getElementById('btnInsert').addEventListener(
+    'click',
+    startInsertScan
+  );
 
   async function pollWeight(){
     try {
@@ -269,6 +274,9 @@
         </div>
 
         ${canVoucher ? '' : `<div style="font-size:11.5px; color:var(--muted); margin-bottom:6px;">Needs ${VOUCHER_MIN_POINTS} points minimum for a voucher.</div>`}
+        <button type="button" class="vbtn green insert-again-btn" data-insert-again>
+          Insert Another Item <span class="arrow">&#8250;</span>
+        </button>
         <button class="cancel-link" data-close="trayInsert">Done</button>`;
 
       showToast(
@@ -337,16 +345,27 @@
           <strong>Scan Timed Out</strong><br>
           No stable item result was received. Please try again.
         </div>
-        <button class="cancel-link" data-close="trayInsert">Close</button>`;
+        <button type="button" class="vbtn green insert-again-btn" data-insert-again>
+          Try Again <span class="arrow">&#8250;</span>
+        </button>
+        <button type="button" class="result-close-btn" data-close="trayInsert">Close</button>`;
 
       showToast('Scan timed out', 'error');
     }
 
+    bindInsertResultActions(box);
+  }
+
+  function bindInsertResultActions(box){
     box.querySelectorAll('[data-close]').forEach(el => {
       el.addEventListener(
         'click',
         () => closeTray('trayInsert')
       );
+    });
+
+    box.querySelectorAll('[data-insert-again]').forEach(el => {
+      el.addEventListener('click', startInsertScan);
     });
   }
 

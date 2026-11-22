@@ -3,12 +3,16 @@ import time
 from django.conf import settings
 from django.core.management.base import BaseCommand
 from django.db import DatabaseError
+from django.utils import timezone
 
 from kiosk.bottle_scans import complete_waiting_scan
 from kiosk.camera_client import (
     CameraUnavailableError,
+    capture_camera_frame,
     classify_camera_frame,
 )
+from kiosk.ml_classifier import load_bottle_model
+from kiosk.models import BottleScan
 
 
 def normalize_label(label):
@@ -21,10 +25,28 @@ def normalize_label(label):
     )
 
 
+def has_active_waiting_scan():
+    """Return True only while a portal user has requested a scan."""
+    now = timezone.now()
+
+    BottleScan.objects.filter(
+        status=BottleScan.WAITING,
+        expires_at__lte=now,
+    ).update(
+        status=BottleScan.EXPIRED,
+        completed_at=now,
+    )
+
+    return BottleScan.objects.filter(
+        status=BottleScan.WAITING,
+        expires_at__gt=now,
+    ).exists()
+
+
 class Command(BaseCommand):
     help = (
-        "Continuously monitor the ESP32-CAM "
-        "for recycling events."
+        "Wait for a portal scan request, then monitor the ESP32-CAM "
+        "for one recycling event."
     )
 
     def handle(self, *args, **options):
@@ -34,17 +56,55 @@ class Command(BaseCommand):
 
         candidate_label = None
         candidate_count = 0
-        bottle_locked = False
+
+        # Load TensorFlow and the TFLite model now, while the monitor is
+        # idle. Otherwise the first client who presses Insert Item has to
+        # wait for the model to load before their scan can begin.
+        self.stdout.write("Loading item-classification model...")
+        try:
+            load_bottle_model()
+        except (OSError, ValueError, RuntimeError) as error:
+            self.stderr.write(
+                self.style.ERROR(
+                    "Could not load the item-classification model: "
+                    f"{error}"
+                )
+            )
+            return
+
+        # Verify that the ESP32-CAM can be reached before reporting that the
+        # monitor is ready. This retrieves one image but does not classify an
+        # item or save a scan result.
+        try:
+            capture_camera_frame()
+        except CameraUnavailableError as error:
+            self.stderr.write(
+                self.style.ERROR(
+                    "Camera unavailable. The monitor was not started: "
+                    f"{error}"
+                )
+            )
+            return
 
         self.stdout.write(
             self.style.SUCCESS(
-                "EcoLink camera monitor started."
+                "ESP32-CAM connection verified. "
+                "Waiting for Insert Item requests."
             )
         )
         self.stdout.write("Press Ctrl+C to stop.")
 
         try:
             while True:
+                # Keep the camera idle until a portal client explicitly
+                # presses Insert Item. This avoids unnecessary captures and
+                # classification while nobody is using the machine.
+                if not has_active_waiting_scan():
+                    candidate_label = None
+                    candidate_count = 0
+                    time.sleep(min(interval, 0.5))
+                    continue
+
                 try:
                     result = classify_camera_frame()
                 except CameraUnavailableError as error:
@@ -90,13 +150,7 @@ class Command(BaseCommand):
 
                 if candidate_count >= stable_frames_required:
                     if label_key == "no item":
-                        if bottle_locked:
-                            self.stdout.write(
-                                self.style.SUCCESS(
-                                    "Object removed. Ready for the next scan."
-                                )
-                            )
-                        bottle_locked = False
+                        self.stdout.write("No item detected yet.")
 
                     elif (
                         label_key in {
@@ -104,7 +158,6 @@ class Command(BaseCommand):
                             "tin can",
                             "other object",
                         }
-                        and not bottle_locked
                     ):
                         if label_key == "plastic bottle":
                             event_message = "EVENT: PLASTIC BOTTLE"
@@ -145,7 +198,6 @@ class Command(BaseCommand):
                                     "Waiting for the portal to start one."
                                 )
                             )
-                            bottle_locked = False
                         else:
                             saved_style = (
                                 self.style.SUCCESS
@@ -164,9 +216,9 @@ class Command(BaseCommand):
                                 )
                             )
 
-                            bottle_locked = True
                             self.stdout.write(
-                                "Waiting for the object to be removed..."
+                                "Scan complete. Waiting for the next "
+                                "Insert Item request."
                             )
 
                     candidate_count = 0

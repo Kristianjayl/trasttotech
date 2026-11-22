@@ -173,6 +173,6 @@ CAMERA_MONITOR_MINIMUM_PERCENT = float(
 CAMERA_MONITOR_STABLE_FRAMES = int(
     os.environ.get(
         "CAMERA_MONITOR_STABLE_FRAMES",
-        "2",
+        "1",
     )
 )

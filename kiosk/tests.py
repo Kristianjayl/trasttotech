@@ -15,6 +15,9 @@ from .models import (
 )
 
 from .bottle_scans import complete_waiting_scan
+from .management.commands.monitor_camera import (
+    has_active_waiting_scan,
+)
 
 
 class PlasticBottleAcceptanceTests(TestCase):
@@ -346,6 +349,36 @@ class BottleScanBinSafetyTests(TestCase):
             BottleScan.objects.count(),
             1,
         )
+
+
+class CameraMonitorRequestTests(TestCase):
+    def setUp(self):
+        self.user = KioskUser.objects.create(
+            device_id="camera-monitor-request-user",
+        )
+
+    def test_camera_monitor_stays_idle_without_insert_request(self):
+        self.assertFalse(has_active_waiting_scan())
+
+    def test_camera_monitor_runs_after_insert_request(self):
+        BottleScan.objects.create(
+            user=self.user,
+            status=BottleScan.WAITING,
+            expires_at=timezone.now() + timedelta(seconds=60),
+        )
+
+        self.assertTrue(has_active_waiting_scan())
+
+    def test_camera_monitor_expires_old_insert_request(self):
+        scan = BottleScan.objects.create(
+            user=self.user,
+            status=BottleScan.WAITING,
+            expires_at=timezone.now() - timedelta(seconds=1),
+        )
+
+        self.assertFalse(has_active_waiting_scan())
+        scan.refresh_from_db()
+        self.assertEqual(scan.status, BottleScan.EXPIRED)
 
 
 @override_settings(ESP32_API_TOKEN="test-device-token")

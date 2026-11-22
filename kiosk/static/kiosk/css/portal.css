@@ -412,16 +412,31 @@ table.rates{ width:100%; border-collapse:collapse; font-size:12.5px; }
 table.rates th{ padding:8px 6px; border-bottom:2px solid var(--chassis-edge); color:var(--muted); font-size:10.5px; letter-spacing:.6px; text-align:left; text-transform:uppercase; }
 table.rates td{ padding:9px 6px; border-bottom:1px solid var(--chassis-edge); }
 
-.cancel-link{
+.cancel-link,
+.result-close-btn{
   display:block;
-  margin:6px auto 0;
-  border:0;
-  background:none;
-  color:var(--muted);
+  width:auto;
+  min-width:92px;
+  margin:10px 0 0 auto;
+  padding:8px 14px;
+  border:1px solid var(--chassis-edge);
+  border-radius:8px;
+  background:#fff;
+  color:var(--ink);
   cursor:pointer;
   font-size:13px;
+  font-weight:700;
   text-align:center;
-  text-decoration:underline;
+  text-decoration:none;
+}
+
+.insert-again-btn{
+  margin:0 0 10px;
+}
+
+.cancel-link:hover,
+.result-close-btn:hover{
+  background:#f1f5f1;
 }
 
 .toast{
